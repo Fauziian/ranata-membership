@@ -10,7 +10,7 @@ import {
 import { RanataLogo, TierBadge } from "@/components/shared";
 import { getMemberProfile, getNotifications } from "@/lib/data-fetchers";
 import { useIsMobile } from "@/components/ui/use-mobile";
-import { memberApi, getToken } from "@/lib/api";
+import { memberApi, getToken, setStoredUser } from "@/lib/api";
 
 export default function DashboardLayout({
   children,
@@ -39,6 +39,29 @@ export default function DashboardLayout({
     };
     updateProfile();
     window.addEventListener("profile-updated", updateProfile);
+
+    // Also fetch live profile from API to keep badge accurate
+    const token = getToken();
+    if (token) {
+      memberApi.getProfile().then((res) => {
+        if (res.success && res.data) {
+          setStoredUser(res.data);
+          setProfile({
+            id: res.data.member_id,
+            name: res.data.name,
+            email: res.data.email,
+            phone: res.data.phone || "Belum diatur",
+            tier: res.data.tier,
+            points: res.data.points,
+            address: res.data.address || "Belum diatur",
+            city: res.data.city || "Belum diatur",
+            birthdate: res.data.birthdate || "Belum diatur",
+            avatar: res.data.avatar || null,
+          });
+        }
+      }).catch(() => {});
+    }
+
     return () => window.removeEventListener("profile-updated", updateProfile);
   }, []);
 
@@ -93,6 +116,13 @@ export default function DashboardLayout({
     router.push("/");
   };
 
+  // Derive profile completion status from live profile state
+  const isProfileComplete = Boolean(
+    profile?.birthdate && profile.birthdate !== "Belum diatur" &&
+    profile?.city && profile.city !== "Belum diatur" && profile.city !== "Kota Anda" &&
+    profile?.address && profile.address !== "Belum diatur"
+  );
+
   return (
     <div className="min-h-screen flex bg-background">
       {/* ── SIDEBAR (DESKTOP) ── */}
@@ -123,11 +153,18 @@ export default function DashboardLayout({
               >
                 <item.icon className="w-4 h-4 flex-shrink-0" />
                 <span>{item.label}</span>
+                {/* Tagihan badge */}
                 {item.badge && item.badge > 0 ? (
                   <span className="ml-auto text-[10px] font-bold text-white w-4 h-4 rounded-full flex items-center justify-center bg-red-500">
                     {item.badge}
                   </span>
                 ) : null}
+                {/* Profile incomplete orange ! badge */}
+                {item.path === "/dashboard/profil" && !isProfileComplete && (
+                  <span className="ml-auto w-5 h-5 rounded-full flex items-center justify-center bg-orange-500 text-white text-[10px] font-black shadow-md animate-pulse">
+                    !
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -194,11 +231,18 @@ export default function DashboardLayout({
               >
                 <item.icon className="w-4 h-4 flex-shrink-0" />
                 <span>{item.label}</span>
+                {/* Tagihan badge */}
                 {item.badge && item.badge > 0 ? (
                   <span className="ml-auto text-[10px] font-bold text-white w-4 h-4 rounded-full flex items-center justify-center bg-red-500">
                     {item.badge}
                   </span>
                 ) : null}
+                {/* Profile incomplete orange ! badge */}
+                {item.path === "/dashboard/profil" && !isProfileComplete && (
+                  <span className="ml-auto w-5 h-5 rounded-full flex items-center justify-center bg-orange-500 text-white text-[10px] font-black shadow-md animate-pulse">
+                    !
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -321,6 +365,12 @@ export default function DashboardLayout({
                   <div className="text-[11px] font-semibold leading-none mb-0.5">{profile?.name || "Loading..."}</div>
                   <TierBadge tier={profile?.tier || "Bronze"} />
                 </div>
+                {/* Profile incomplete indicator on header chip */}
+                {!isProfileComplete && (
+                  <span className="w-4 h-4 rounded-full flex items-center justify-center bg-orange-500 text-white text-[9px] font-black flex-shrink-0 shadow-sm animate-pulse">
+                    !
+                  </span>
+                )}
               </Link>
             </div>
           </div>
