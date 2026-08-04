@@ -51,7 +51,8 @@ export default function AdminDashboardPage() {
           if (activeStep) {
             const stepLabel = activeStep.label || "";
             if (stepLabel.includes("Rumah")) {
-              location = "Rumah Customer (Jakarta)";
+              const userCity = trip.user?.city && trip.user.city !== "Belum diatur" ? trip.user.city : null;
+              location = userCity ? `Rumah Customer (${userCity})` : "Rumah Customer (Belum diatur)";
             } else if (stepLabel.includes("CGK")) {
               location = "Terminal 3 Bandara CGK";
             } else if (stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {

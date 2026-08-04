@@ -27,6 +27,7 @@ export default function TravelStatusPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [userName, setUserName] = useState<string>("Customer");
   const [userTier, setUserTier] = useState<string>("Bronze");
+  const [userProfile, setUserProfile] = useState<any>(null);
 
   const statusColorMap = {
     waiting: "#EF4444",
@@ -40,12 +41,58 @@ export default function TravelStatusPage() {
     done: "Selesai"
   };
 
+  const cityCoordinatesMap: Record<string, { lat: number; lng: number }> = {
+    jakarta: { lat: -6.2088, lng: 106.8456 },
+    bogor: { lat: -6.5971, lng: 106.8060 },
+    depok: { lat: -6.4025, lng: 106.7942 },
+    tangerang: { lat: -6.1783, lng: 106.6319 },
+    bekasi: { lat: -6.2383, lng: 106.9756 },
+    bandung: { lat: -6.9175, lng: 107.6191 },
+    surabaya: { lat: -7.2575, lng: 112.7521 },
+    semarang: { lat: -6.9667, lng: 110.4167 },
+    yogyakarta: { lat: -7.7956, lng: 110.3695 },
+    jogja: { lat: -7.7956, lng: 110.3695 },
+    solo: { lat: -7.5755, lng: 110.8243 },
+    malang: { lat: -7.9666, lng: 112.6326 },
+    denpasar: { lat: -8.6705, lng: 115.2126 },
+    bali: { lat: -8.4095, lng: 115.1889 },
+    medan: { lat: 3.5952, lng: 98.6722 },
+    makassar: { lat: -5.1477, lng: 119.4327 },
+    palembang: { lat: -2.9909, lng: 104.7567 },
+    balikpapan: { lat: -1.2654, lng: 116.8312 },
+    samarinda: { lat: -0.5022, lng: 117.1536 },
+    banjarmasin: { lat: -3.3186, lng: 114.5944 },
+    pontianak: { lat: -0.0263, lng: 109.3425 },
+    manado: { lat: 1.4748, lng: 124.8428 },
+    padang: { lat: -0.9471, lng: 100.4172 },
+    pekanbaru: { lat: 0.5071, lng: 101.4478 },
+    lampung: { lat: -5.4498, lng: 105.2664 },
+    batam: { lat: 1.0901, lng: 104.0301 },
+  };
+
+  const getCoordinatesForCity = (city: string, address: string) => {
+    const defaultCoords = { lat: -6.2088, lng: 106.8456 }; // Jakarta
+    const cleanCity = (city || "").toLowerCase().trim();
+    const cleanAddress = (address || "").toLowerCase().trim();
+    
+    if (cleanCity && cityCoordinatesMap[cleanCity]) {
+      return cityCoordinatesMap[cleanCity];
+    }
+    for (const [cityName, coords] of Object.entries(cityCoordinatesMap)) {
+      if (cleanAddress.includes(cityName)) {
+        return coords;
+      }
+    }
+    return defaultCoords;
+  };
+
   const fetchTravelData = async (showToast = false) => {
     try {
       const profileRes = await memberApi.getProfile();
       if (profileRes.success && profileRes.data) {
         setUserName(profileRes.data.name);
         setUserTier(profileRes.data.tier || "Bronze");
+        setUserProfile(profileRes.data);
       }
       const res = await memberApi.getTrips();
       if (res.success) {
@@ -96,7 +143,10 @@ export default function TravelStatusPage() {
     }
     const stepLabel = activeStep?.label || "";
     if (stepLabel.includes("Rumah")) {
-      return { lat: -6.208, lng: 106.822, location: "Rumah Customer (Jakarta)" };
+      const userCity = userProfile?.city && userProfile.city !== "Belum diatur" ? userProfile.city : null;
+      const locationLabel = userCity ? `Rumah Customer (${userCity})` : "Rumah Customer (Belum diatur)";
+      const coords = getCoordinatesForCity(userProfile?.city || "", userProfile?.address || "");
+      return { lat: coords.lat, lng: coords.lng, location: locationLabel };
     } else if (stepLabel.includes("CGK")) {
       return { lat: -6.125, lng: 106.656, location: "Terminal 3 Bandara CGK" };
     } else if (stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {
