@@ -170,6 +170,10 @@ export default function TravelStatusPage() {
 
   const timeline = trip?.steps || [];
   const activeLoc = getActiveLocationForTrip(trip);
+  const activeStep = trip?.steps?.find((s: any) => s.status === "in-progress") 
+    || trip?.steps?.filter((s: any) => s.status === "done").slice(-1)[0]
+    || trip?.steps?.[0];
+
   const travelers = trip ? [{
     id: trip.id,
     name: userName,
@@ -178,6 +182,14 @@ export default function TravelStatusPage() {
     service: trip.title,
     lat: activeLoc.lat,
     lng: activeLoc.lng,
+    activeStep: activeStep ? {
+      label: activeStep.label,
+      status: activeStep.status,
+      officer: activeStep.officer,
+      time: activeStep.time,
+    } : null,
+    userCity: userProfile?.city,
+    userAddress: userProfile?.address,
   }] : [];
 
   const overallStatus = trip?.status || "waiting";

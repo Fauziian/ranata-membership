@@ -155,6 +155,10 @@ export default function AdminMapPage() {
   // Map trips to travelers format for leaflet map
   const travelers = trips.map((trip: any) => {
     const activeLoc = getActiveLocationForTrip(trip);
+    const activeStep = trip.steps?.find((s: any) => s.status === "in-progress") 
+      || trip.steps?.filter((s: any) => s.status === "done").slice(-1)[0]
+      || trip.steps?.[0];
+
     return {
       id: trip.id,
       name: trip.user?.name || "Customer",
@@ -163,6 +167,14 @@ export default function AdminMapPage() {
       service: trip.title,
       lat: activeLoc.lat,
       lng: activeLoc.lng,
+      activeStep: activeStep ? {
+        label: activeStep.label,
+        status: activeStep.status,
+        officer: activeStep.officer,
+        time: activeStep.time,
+      } : null,
+      userCity: trip.user?.city,
+      userAddress: trip.user?.address,
     };
   });
 

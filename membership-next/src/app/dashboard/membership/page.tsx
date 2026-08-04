@@ -137,6 +137,15 @@ export default function MembershipPurchasePage() {
   };
 
   const handlePurchase = async (tier: "Silver" | "Gold" | "Platinum") => {
+    // Validate profile fields strictly on checkout/purchase
+    if (!profile?.birthdate || profile.birthdate === "Belum diatur" || 
+        !profile?.city || profile.city === "Belum diatur" || 
+        !profile?.address || profile.address === "Belum diatur") {
+      toast.warning("Silakan lengkapi Tanggal Lahir, Kota Domisili, dan Alamat Domisili Anda terlebih dahulu di profil sebelum melakukan pemesanan.");
+      router.push("/dashboard/profil");
+      return;
+    }
+
     try {
       setPurchasing(tier);
       const res = await memberApi.upgrade(tier);
