@@ -82,44 +82,179 @@ const getCoordinatesForHub = (city: string) => {
   return { lat: -6.125, lng: 106.656 };
 };
 
+// Physics/Geometry Helper: Haversine distance in km
+function getHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// Format minutes to user friendly text
+const formatETA = (minutes: number) => {
+  if (minutes <= 1) return "Hampir sampai";
+  if (minutes < 60) return `${minutes} menit`;
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hrs} jam ${mins} menit` : `${hrs} jam`;
+};
+
+// Calculate vehicle tracking coordinates and remaining ETA dynamically using physics (distance / speed)
+const getTravelerETA = (t: any, progress: number) => {
+  const stepLabel = t.activeStep?.label || "";
+  const customerCoordsRaw = getCustomerCoords(t);
+  const customerCoords = { lat: customerCoordsRaw.lat, lng: customerCoordsRaw.lng };
+  
+  let hubCoords = getCoordinatesForHub(t.userCity || "");
+  let destinationCoords = customerCoords;
+  let trackType: "shuttle" | "flight" = "shuttle";
+  
+  if (stepLabel.includes("Rumah")) {
+    hubCoords = getCoordinatesForHub(t.userCity || "");
+    destinationCoords = customerCoords;
+    trackType = "shuttle";
+  } else if (stepLabel.includes("CGK") || stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {
+    hubCoords = { lat: -6.125, lng: 106.656 };
+    destinationCoords = { lat: -8.748, lng: 115.167 };
+    trackType = "flight";
+  } else if (stepLabel.includes("DPS") || stepLabel.includes("Jemput")) {
+    hubCoords = { lat: -8.748, lng: 115.167 };
+    destinationCoords = { lat: -8.798, lng: 115.228 };
+    trackType = "shuttle";
+  } else if (stepLabel.includes("Hotel") || stepLabel.includes("Check-in")) {
+    hubCoords = { lat: -8.798, lng: 115.228 };
+    destinationCoords = { lat: -8.798, lng: 115.228 };
+    trackType = "shuttle";
+  }
+
+  // Calculate current vehicle position along route based on progress percentage
+  const pct = progress / 100;
+  const vehicleCoords = {
+    lat: hubCoords.lat + (destinationCoords.lat - hubCoords.lat) * pct,
+    lng: hubCoords.lng + (destinationCoords.lng - hubCoords.lng) * pct,
+  };
+
+  const remainingDistance = getHaversineDistance(
+    vehicleCoords.lat,
+    vehicleCoords.lng,
+    destinationCoords.lat,
+    destinationCoords.lng
+  );
+
+  // Velocity (km/h): Flight = 700, Shuttle = 40
+  const speed = trackType === "flight" ? 700 : 40;
+  const remainingTimeHours = remainingDistance / speed;
+  const remainingTimeMinutes = Math.max(1, Math.round(remainingTimeHours * 60));
+
+  return {
+    distanceKm: parseFloat(remainingDistance.toFixed(1)),
+    etaMinutes: remainingTimeMinutes,
+    vehicleCoords,
+    destinationCoords,
+    hubCoords,
+    trackType
+  };
+};
+
 // Custom colored circle marker icons
 function createHomeIcon() {
   const html = `
     <div style="position:relative; width:34px; height:34px;">
       <div style="
         position:absolute; inset:-4px; border-radius:50%;
-        background:#EF444422;
+        background:#FF330022;
         animation:leaflet-ping 2s ease-in-out infinite;
       "></div>
       <div style="
         width:34px; height:34px; border-radius:50%;
-        background:#EF4444;
+        background:#FF3300;
         border:3px solid white;
         box-shadow:0 3px 10px rgba(0,0,0,0.3);
         display:flex; align-items:center; justify-content:center;
         color: white; font-size: 15px;
         position:relative; z-index:1;
       ">
-        🏠
+        📍
       </div>
     </div>`;
   return L.divIcon({ html, className: "", iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -18] });
 }
 
-function createVehicleIcon(type: "shuttle" | "flight" = "shuttle") {
-  const emoji = type === "flight" ? "✈️" : "🚗";
+function createVehicleIcon(
+  type: "shuttle" | "flight" = "shuttle", 
+  statusLabelText: string = "Dalam perjalanan",
+  etaMinutes: number = 0,
+  distanceKm: number = 0
+) {
+  const emoji = type === "flight" ? "✈️" : "🚌";
   const html = `
     <div style="position:relative; width:36px; height:36px;">
+      <!-- Floating Label/Speech Bubble above the vehicle (e-commerce tracking style) -->
+      <div style="
+        position: absolute;
+        bottom: 45px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ffffff;
+        border: 2px solid #FF3300;
+        padding: 5px 10px;
+        border-radius: 8px;
+        white-space: nowrap;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-family: 'Montserrat', sans-serif;
+        text-align: center;
+        z-index: 100;
+      ">
+        <div style="font-weight: 900; font-size: 10px; color: #FF3300; text-transform: uppercase; letter-spacing: 0.5px;">
+          ${statusLabelText}
+        </div>
+        <div style="font-size: 9px; color: #444; font-weight: 700; margin-top: 2px; display: flex; align-items: center; justify-content: center; gap: 3px;">
+          ⏱️ ${formatETA(etaMinutes)} (${distanceKm} km)
+        </div>
+        <!-- Triangle arrow -->
+        <div style="
+          position: absolute;
+          bottom: -6px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-top: 5px solid #ffffff;
+          z-index: 2;
+        "></div>
+        <div style="
+          position: absolute;
+          bottom: -8px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 6px solid transparent;
+          border-right: 6px solid transparent;
+          border-top: 6px solid #FF3300;
+          z-index: 1;
+        "></div>
+      </div>
+
       <div style="
         position:absolute; inset:-6px; border-radius:50%;
-        background:#F59E0B33;
+        background:#FF330022;
         animation:leaflet-ping 1.2s ease-in-out infinite;
       "></div>
       <div style="
         width:36px; height:36px; border-radius:50%;
-        background:#F59E0B;
+        background:#FF3300;
         border:3px solid white;
-        box-shadow:0 4px 12px rgba(0,0,0,0.4);
+        box-shadow:0 4px 12px rgba(0,0,0,0.3);
         display:flex; align-items:center; justify-content:center;
         color: white; font-size: 17px;
         position:relative; z-index:1;
@@ -258,21 +393,30 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
       </div>
 
       {/* ETA overlay panel for active tracking */}
-      {travelers.some(t => t.activeStep && t.activeStep.status === "in-progress") && (
-        <div className="absolute bottom-4 right-3 bg-white/95 backdrop-blur-xs border border-border rounded-xl p-3 shadow-sm max-w-[240px]" style={{ zIndex: 1001 }}>
-          <div className="text-[9px] font-black tracking-widest text-amber-600 mb-1" style={{ fontFamily: "Montserrat, sans-serif" }}>
-            ESTIMASI PENJEMPUTAN
+      {(() => {
+        const activeT = travelers.find(t => t.activeStep && t.activeStep.status === "in-progress");
+        if (!activeT) return null;
+        
+        const { distanceKm, etaMinutes } = getTravelerETA(activeT, progress);
+        
+        return (
+          <div className="absolute bottom-4 right-3 bg-white/95 backdrop-blur-xs border border-border rounded-xl p-3 shadow-sm max-w-[240px]" style={{ zIndex: 1001 }}>
+            <div className="text-[9px] font-black tracking-widest text-[#FF3300] mb-1" style={{ fontFamily: "Montserrat, sans-serif" }}>
+              ESTIMASI PENJEMPUTAN
+            </div>
+            <div className="text-xs font-bold text-foreground leading-normal">
+              {activeT.activeStep?.label?.includes("Rumah") 
+                ? "Driver sedang meluncur ke lokasi Anda."
+                : "Kendaraan sedang dalam perjalanan."}
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+              <span>⏱️ ETA: {formatETA(etaMinutes)}</span>
+              <span>•</span>
+              <span>📍 Jarak: {distanceKm} km</span>
+            </div>
           </div>
-          <div className="text-xs font-bold text-foreground leading-normal">
-            Driver sedang meluncur ke lokasi Anda.
-          </div>
-          <div className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
-            <span>⏱️ ETA: {Math.max(5, 30 - Math.floor(progress * 0.3))} menit</span>
-            <span>•</span>
-            <span>📍 Jarak: {Math.max(1, 15 - Math.floor(progress * 0.15))} km</span>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       <MapContainer
         center={center}
@@ -282,16 +426,10 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
         scrollWheelZoom={true}
       >
         <>
-          {/* Satellite-style tile layer from Esri */}
+          {/* CartoDB Voyager clean light vector-terrain style tile layer */}
           <TileLayer
-            attribution='&copy; <a href="https://www.esri.com">Esri</a>, Maxar, Earthstar Geographics'
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-          />
-          {/* Labels on top of satellite */}
-          <TileLayer
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-            attribution=""
-            opacity={0.85}
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           />
 
           <MapController travelers={travelers} progress={progress} />
@@ -300,69 +438,27 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
             const stepLabel = t.activeStep?.label || "";
             const stepStatus = t.activeStep?.status || "waiting";
             
-            // Use real GPS coordinates if available, fallback to city lookup
-            const customerCoordsRaw = getCustomerCoords(t);
-            const customerCoords = { lat: customerCoordsRaw.lat, lng: customerCoordsRaw.lng };
-            const isGPSAccurate = customerCoordsRaw.isGPS;
+            // Resolve exact coordinates & physics calculations
+            const { distanceKm, etaMinutes, vehicleCoords, destinationCoords, hubCoords, trackType } = getTravelerETA(t, progress);
             
-            // Determine coordinate states
-            let hubCoords = getCoordinatesForHub(t.userCity || "");
-            let destinationCoords = customerCoords;
+            // Check if GPS is accurate (saved in profile)
+            const customerCoordsRaw = getCustomerCoords(t);
+            const isGPSAccurate = customerCoordsRaw.isGPS;
+            const customerCoords = { lat: customerCoordsRaw.lat, lng: customerCoordsRaw.lng };
+            
+            // Determine whether to draw the route line
             let drawRoute = false;
-            let trackType: "shuttle" | "flight" = "shuttle";
-            let vehicleCoords = hubCoords;
-
             if (stepLabel.includes("Rumah")) {
-              // Shuttle picks up user at home and takes them to the local Hub
-              hubCoords = getCoordinatesForHub(t.userCity || "");
-              destinationCoords = customerCoords;
               drawRoute = stepStatus === "in-progress";
-              trackType = "shuttle";
-              
-              if (stepStatus === "in-progress") {
-                // Vehicle moves from local Hub to Customer home
-                vehicleCoords = {
-                  lat: hubCoords.lat + (destinationCoords.lat - hubCoords.lat) * (progress / 100),
-                  lng: hubCoords.lng + (destinationCoords.lng - hubCoords.lng) * (progress / 100),
-                };
-              }
             } else if (stepLabel.includes("CGK") || stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {
-              // Airplane goes from CGK (Jakarta) to DPS (Bali)
-              hubCoords = { lat: -6.125, lng: 106.656 }; // CGK Airport
-              destinationCoords = { lat: -8.748, lng: 115.167 }; // DPS Airport
               drawRoute = true;
-              trackType = "flight";
-              
-              if (stepStatus === "in-progress") {
-                vehicleCoords = {
-                  lat: hubCoords.lat + (destinationCoords.lat - hubCoords.lat) * (progress / 100),
-                  lng: hubCoords.lng + (destinationCoords.lng - hubCoords.lng) * (progress / 100),
-                };
-              } else {
-                vehicleCoords = hubCoords;
-              }
             } else if (stepLabel.includes("DPS") || stepLabel.includes("Jemput")) {
-              // Shuttle picks up from DPS Airport and drives to Hotel Partner
-              hubCoords = { lat: -8.748, lng: 115.167 }; // DPS Airport
-              destinationCoords = { lat: -8.798, lng: 115.228 }; // Hotel Partner
               drawRoute = true;
-              trackType = "shuttle";
-              
-              if (stepStatus === "in-progress") {
-                vehicleCoords = {
-                  lat: hubCoords.lat + (destinationCoords.lat - hubCoords.lat) * (progress / 100),
-                  lng: hubCoords.lng + (destinationCoords.lng - hubCoords.lng) * (progress / 100),
-                };
-              } else {
-                vehicleCoords = hubCoords;
-              }
             } else if (stepLabel.includes("Hotel") || stepLabel.includes("Check-in")) {
-              // Reached Hotel Partner
-              hubCoords = { lat: -8.798, lng: 115.228 };
-              destinationCoords = { lat: -8.798, lng: 115.228 };
               drawRoute = false;
-              trackType = "shuttle";
             }
+
+            const statusLabelText = stepLabel.includes("Jemput") || stepLabel.includes("Rumah") ? "Dalam perjalanan" : "Sedang diproses";
 
             return (
               <div key={t.id}>
@@ -398,11 +494,11 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
                 {drawRoute && (
                   <Marker
                     position={[hubCoords.lat, hubCoords.lng]}
-                    icon={trackType === "flight" ? createAirportIcon() : createAirportIcon()}
+                    icon={createAirportIcon()}
                   >
                     <Popup>
                       <div style={{ minWidth: 160, fontFamily: "Montserrat, sans-serif" }}>
-                        <div style={{ fontWeight: 800, fontSize: 12, color: "#111" }}>Titk Asal Hub</div>
+                        <div style={{ fontWeight: 800, fontSize: 12, color: "#111" }}>Titik Asal Hub</div>
                         <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>
                           {trackType === "flight" ? "Terminal 3 Bandara CGK" : "Hub Operasional Ranata Tour"}
                         </div>
@@ -411,17 +507,16 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
                   </Marker>
                 )}
 
-                {/* 3. Polyline Route between Hub and Destination */}
+                {/* 3. Polyline Route between Hub and Destination (Solid bold red line) */}
                 {drawRoute && (
                   <Polyline
                     positions={[
                       [hubCoords.lat, hubCoords.lng],
                       [destinationCoords.lat, destinationCoords.lng]
                     ]}
-                    color="#F59E0B"
-                    weight={4}
-                    opacity={0.8}
-                    dashArray="8, 8"
+                    color="#FF3300"
+                    weight={6}
+                    opacity={0.9}
                   />
                 )}
 
@@ -429,16 +524,16 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
                 {stepStatus === "in-progress" && (
                   <Marker
                     position={[vehicleCoords.lat, vehicleCoords.lng]}
-                    icon={createVehicleIcon(trackType)}
+                    icon={createVehicleIcon(trackType, statusLabelText, etaMinutes, distanceKm)}
                   >
                     <Popup>
                       <div style={{ minWidth: 180, fontFamily: "Montserrat, sans-serif" }}>
-                        <div style={{ fontWeight: 800, fontSize: 13, color: "#d97706", marginBottom: 4 }}>
-                          {trackType === "flight" ? "✈️ Penerbangan Live" : "🚗 Driver Ranata Tour"}
+                        <div style={{ fontWeight: 800, fontSize: 13, color: "#FF3300", marginBottom: 4 }}>
+                          {trackType === "flight" ? "✈️ Penerbangan Live" : "🚌 Driver Ranata Tour"}
                         </div>
                         <div style={{ fontSize: 11, color: "#333", fontWeight: 600 }}>{stepLabel}</div>
                         <div style={{ fontSize: 11, color: "#666" }}>Petugas: {t.activeStep?.officer || "Driver Lapangan"}</div>
-                        <div style={{ fontSize: 10, color: "#999", marginTop: 4 }}>Estimasi: {Math.max(5, 30 - Math.floor(progress * 0.3))} menit lagi</div>
+                        <div style={{ fontSize: 10, color: "#999", marginTop: 4 }}>Estimasi: {formatETA(etaMinutes)} ({distanceKm} km)</div>
                         
                         <button
                           onClick={() => onStatusChange(t.id, t.status)}
