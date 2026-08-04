@@ -77,6 +77,14 @@ export default function RedeemPointsPage() {
     : rewardsList.filter((r: any) => r.category === filter);
 
   const handleRedeemClick = (reward: any) => {
+    // Check profile completion before redeeming rewards/claiming benefits
+    if (!profile?.birthdate || profile.birthdate === "Belum diatur" || 
+        !profile?.city || profile.city === "Belum diatur" || 
+        !profile?.address || profile.address === "Belum diatur") {
+      toast.warning("Lengkapi Tanggal Lahir, Kota Domisili, dan Alamat Anda terlebih dahulu di profil untuk klaim benefit.");
+      router.push("/dashboard/profil");
+      return;
+    }
     setConfirmReward(reward);
   };
 

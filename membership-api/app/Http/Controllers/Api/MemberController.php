@@ -238,6 +238,17 @@ class MemberController extends Controller
     public function redeemReward(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
+
+        // Strict profile validation check during reward / benefit redemption
+        if (empty($user->birthdate) || $user->birthdate === 'Belum diatur' ||
+            empty($user->city) || $user->city === 'Belum diatur' ||
+            empty($user->address) || $user->address === 'Belum diatur') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lengkapi Tanggal Lahir, Kota Domisili, dan Alamat Anda terlebih dahulu di profil untuk klaim benefit.',
+            ], 422);
+        }
+
         $reward = Reward::where('id', $id)->where('active', true)->firstOrFail();
 
         if ($user->points < $reward->points_required) {

@@ -222,6 +222,17 @@ class ChatController extends Controller
     public function selectService(Request $request): JsonResponse
     {
         $user = $request->user();
+        
+        // Strict profile validation check during tour service request / booking
+        if (empty($user->birthdate) || $user->birthdate === 'Belum diatur' ||
+            empty($user->city) || $user->city === 'Belum diatur' ||
+            empty($user->address) || $user->address === 'Belum diatur') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lengkapi Tanggal Lahir, Kota Domisili, dan Alamat Anda terlebih dahulu di profil untuk melanjutkan booking perjalanan.',
+            ], 422);
+        }
+
         $memberId = $user->member_id ?? 'RT-XXXX-XXX';
 
         $validator = Validator::make($request->all(), [

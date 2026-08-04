@@ -25,6 +25,7 @@ export default function ChatLayananPage() {
   const services = getServicesList();
   
   // State for user profile
+  const [profile, setProfile] = useState<any>(null);
   const [userName, setUserName] = useState<string>("Ahmad Fauzi");
   const [userTier, setUserTier] = useState<string>("Bronze");
   const [memberId, setMemberId] = useState<string>("RT-2024-001");
@@ -59,6 +60,7 @@ export default function ChatLayananPage() {
         const res = await memberApi.getProfile();
         if (res.success && res.data) {
           const profileData = res.data;
+          setProfile(profileData);
           setUserName(profileData.name);
           setUserTier(profileData.tier || "Bronze");
           const mId = profileData.member_id || "RT-XXXX-XXX";
@@ -179,6 +181,15 @@ export default function ChatLayananPage() {
   };
 
   const handleServiceSelect = async (serviceLabel: string) => {
+    // Check profile completion before ordering/selecting a tour service
+    if (!profile?.birthdate || profile.birthdate === "Belum diatur" || 
+        !profile?.city || profile.city === "Belum diatur" || 
+        !profile?.address || profile.address === "Belum diatur") {
+      toast.warning("Lengkapi Tanggal Lahir, Kota Domisili, dan Alamat Anda terlebih dahulu di profil untuk melanjutkan booking perjalanan.");
+      router.push("/dashboard/profil");
+      return;
+    }
+
     setSelectedSvc(serviceLabel);
     const now = new Date().toLocaleTimeString("id-ID", { 
       hour: "2-digit", 

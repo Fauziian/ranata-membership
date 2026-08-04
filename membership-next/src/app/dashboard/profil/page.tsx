@@ -110,13 +110,13 @@ export default function CustomerProfilePage() {
     setInitialProfile(prof);
     setAvatarPreview(prof.avatar);
     setBio({
-      name: prof.name,
+      name: prof.name || "",
       email: prof.email || "member@ranatatour.com",
-      phone: prof.phone,
-      address: prof.address,
-      city: prof.city,
-      birthdate: prof.birthdate,
-      memberId: prof.id,
+      phone: prof.phone || "",
+      address: prof.address === "Belum diatur" ? "" : prof.address || "",
+      city: prof.city === "Belum diatur" ? "" : prof.city || "",
+      birthdate: prof.birthdate === "Belum diatur" ? "" : prof.birthdate || "",
+      memberId: prof.id || "",
     });
   }, []);
 
@@ -189,13 +189,13 @@ export default function CustomerProfilePage() {
     setBioEditing(false);
     if (initialProfile) {
       setBio({
-        name: initialProfile.name,
+        name: initialProfile.name || "",
         email: initialProfile.email || "member@ranatatour.com",
-        phone: initialProfile.phone,
-        address: initialProfile.address,
-        city: initialProfile.city,
-        birthdate: initialProfile.birthdate,
-        memberId: initialProfile.id,
+        phone: initialProfile.phone || "",
+        address: initialProfile.address === "Belum diatur" ? "" : initialProfile.address || "",
+        city: initialProfile.city === "Belum diatur" ? "" : initialProfile.city || "",
+        birthdate: initialProfile.birthdate === "Belum diatur" ? "" : initialProfile.birthdate || "",
+        memberId: initialProfile.id || "",
       });
       setAvatarPreview(initialProfile.avatar);
       setAvatarBase64(null);
@@ -289,6 +289,21 @@ export default function CustomerProfilePage() {
         </div>
       </div>
 
+      {/* Persuasive profile completion banner */}
+      {(!bio.birthdate || !bio.city || !bio.address) && (
+        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-5 mb-6 flex gap-4 items-start shadow-xs">
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h4 className="text-xs font-bold text-amber-900" style={{ fontFamily: "Montserrat, sans-serif" }}>
+              Lengkapi Data Profil Anda 🎁
+            </h4>
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              Lengkapi Tanggal Lahir dan Alamat Domisili Anda untuk menikmati promo diskon ulang tahun dan kemudahan booking.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Bio data card */}
       <div className="bg-white rounded-2xl border border-border p-6 mb-5">
         <div className="flex items-center justify-between mb-5">
@@ -340,11 +355,11 @@ export default function CustomerProfilePage() {
               readOnly={!bioEditing}
               rows={2}
               onChange={e => setBio(b => ({ ...b, address: e.target.value }))}
-              placeholder="Alamat lengkap"
+              placeholder="Belum diatur"
               className={`w-full rounded-xl border px-4 py-2.5 text-sm transition-all outline-none resize-none ${
                 bioEditing
                   ? "bg-white border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/10"
-                  : "bg-background border-border"
+                  : "bg-background border-border text-foreground"
               }`}
             />
           </div>
