@@ -228,10 +228,13 @@ export const adminApi = {
 
   getTrips: () => apiFetch<any>("/admin/trips"),
 
-  updateTripStepStatus: (id: number, status: string) =>
+  updateTripStepStatus: (id: number, status: string, coords?: { lat: number; lng: number }) =>
     apiFetch<any>(`/admin/trip-steps/${id}/status`, {
       method: "PUT",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({
+        status,
+        ...(coords ? { driver_lat: coords.lat, driver_lng: coords.lng } : {})
+      }),
     }),
 
   getChats: () => apiFetch<any[]>("/admin/chats"),

@@ -22,6 +22,55 @@ export default function AdminMapPage() {
   const [trips, setTrips] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
+  const [activeDriverGpsStepId, setActiveDriverGpsStepId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!activeDriverGpsStepId) return;
+
+    let watchId: number;
+
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          console.log("Driver GPS updated:", latitude, longitude);
+          try {
+            await adminApi.updateTripStepStatus(activeDriverGpsStepId, "in-progress", {
+              lat: latitude,
+              lng: longitude,
+            });
+          } catch (e) {
+            console.error("Failed to push driver coordinates:", e);
+          }
+        },
+        (error) => {
+          console.error("GPS Watch error:", error);
+          toast.error("Gagal mendapatkan sinyal GPS. Pastikan izin lokasi aktif.");
+          setActiveDriverGpsStepId(null);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      toast.error("Browser tidak mendukung Geolocation.");
+      setActiveDriverGpsStepId(null);
+    }
+
+    return () => {
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [activeDriverGpsStepId]);
+
+  const toggleDriverGPS = (stepId: number) => {
+    if (activeDriverGpsStepId === stepId) {
+      setActiveDriverGpsStepId(null);
+      toast.success("Pelacakan GPS Penjemput dinonaktifkan.");
+    } else {
+      setActiveDriverGpsStepId(stepId);
+      toast.success("Pelacakan GPS Penjemput diaktifkan secara live!");
+    }
+  };
 
   const fetchTripsData = async (showToast = false) => {
     try {
@@ -172,6 +221,8 @@ export default function AdminMapPage() {
         status: activeStep.status,
         officer: activeStep.officer,
         time: activeStep.time,
+        driverLat: activeStep.driver_lat,
+        driverLng: activeStep.driver_lng,
       } : null,
       userCity: trip.user?.city,
       userAddress: trip.user?.address,
@@ -330,6 +381,24 @@ export default function AdminMapPage() {
                                   🟢 Selesai
                                 </button>
                               </div>
+
+                              {step.status === 'in-progress' && (
+                                <div className="mt-1">
+                                  <button
+                                    onClick={() => toggleDriverGPS(step.id)}
+                                    className={`w-full py-1.5 px-3 rounded-lg text-[9px] font-black border transition-all flex items-center justify-center gap-1.5 shadow-xs ${
+                                      activeDriverGpsStepId === step.id
+                                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 animate-pulse'
+                                        : 'bg-white hover:bg-slate-50 text-emerald-700 border-emerald-200 hover:border-emerald-300'
+                                    }`}
+                                  >
+                                    <span>📍</span>
+                                    {activeDriverGpsStepId === step.id
+                                      ? 'GPS Penjemput Aktif (Live)...'
+                                      : 'Aktifkan GPS Penjemput (Kirim Lokasi)'}
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           );
                         })}

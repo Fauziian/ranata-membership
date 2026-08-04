@@ -107,7 +107,7 @@ const formatETA = (minutes: number) => {
 };
 
 // Calculate vehicle tracking coordinates and remaining ETA dynamically using physics (distance / speed)
-const getTravelerETA = (t: any, progress: number) => {
+const getTravelerETA = (t: any, progress: number, roadPath?: [number, number][]) => {
   const stepLabel = t.activeStep?.label || "";
   const customerCoordsRaw = getCustomerCoords(t);
   const customerCoords = { lat: customerCoordsRaw.lat, lng: customerCoordsRaw.lng };
@@ -134,12 +134,32 @@ const getTravelerETA = (t: any, progress: number) => {
     trackType = "shuttle";
   }
 
-  // Calculate current vehicle position along route based on progress percentage
-  const pct = progress / 100;
-  const vehicleCoords = {
-    lat: hubCoords.lat + (destinationCoords.lat - hubCoords.lat) * pct,
-    lng: hubCoords.lng + (destinationCoords.lng - hubCoords.lng) * pct,
-  };
+  // Calculate current vehicle coordinates: prefer real driver GPS, fallback to road coordinates, fallback to straight line
+  let vehicleCoords = { lat: hubCoords.lat, lng: hubCoords.lng };
+  let isRealDriverGPS = false;
+
+  if (t.activeStep && t.activeStep.driverLat && t.activeStep.driverLng) {
+    vehicleCoords = {
+      lat: parseFloat(t.activeStep.driverLat),
+      lng: parseFloat(t.activeStep.driverLng),
+    };
+    isRealDriverGPS = true;
+  } else if (roadPath && roadPath.length > 0) {
+    // Animate vehicle position along the road nodes array based on progress percentage
+    const index = Math.min(
+      roadPath.length - 1,
+      Math.floor((progress / 100) * roadPath.length)
+    );
+    const coord = roadPath[index];
+    vehicleCoords = { lat: coord[0], lng: coord[1] };
+  } else {
+    // Linear fallback
+    const pct = progress / 100;
+    vehicleCoords = {
+      lat: hubCoords.lat + (destinationCoords.lat - hubCoords.lat) * pct,
+      lng: hubCoords.lng + (destinationCoords.lng - hubCoords.lng) * pct,
+    };
+  }
 
   const remainingDistance = getHaversineDistance(
     vehicleCoords.lat,
@@ -159,7 +179,8 @@ const getTravelerETA = (t: any, progress: number) => {
     vehicleCoords,
     destinationCoords,
     hubCoords,
-    trackType
+    trackType,
+    isRealDriverGPS
   };
 };
 
@@ -314,11 +335,15 @@ function MapController({ travelers, progress }: { travelers: any[]; progress: nu
       return [coords.lat, coords.lng];
     });
 
-    // Also include airport hub if traveler step is in-progress
+    // Also include airport hub or driver live GPS coordinates if traveler step is in-progress
     travelers.forEach(t => {
       if (t.activeStep && t.activeStep.status === "in-progress") {
-        const hub = getCoordinatesForHub(t.userCity || "");
-        points.push([hub.lat, hub.lng]);
+        if (t.activeStep.driverLat && t.activeStep.driverLng) {
+          points.push([parseFloat(t.activeStep.driverLat), parseFloat(t.activeStep.driverLng)]);
+        } else {
+          const hub = getCoordinatesForHub(t.userCity || "");
+          points.push([hub.lat, hub.lng]);
+        }
         if (t.activeStep.label?.includes("Flight")) {
           points.push([-8.748, 115.167]); // Include Bali airport too
         }
@@ -343,6 +368,79 @@ interface IndonesiaMapProps {
 
 export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMapProps) {
   const [progress, setProgress] = useState<number>(0);
+  const [roadRoutes, setRoadRoutes] = useState<Record<string, [number, number][]>>({});
+
+  // Fetch real-world road paths from OSRM for driving segments
+  useEffect(() => {
+    travelers.forEach(async (t) => {
+      const stepLabel = t.activeStep?.label || "";
+      const stepStatus = t.activeStep?.status || "waiting";
+      
+      let drawRoute = false;
+      if (stepLabel.includes("Rumah")) {
+        drawRoute = stepStatus === "in-progress";
+      } else if (stepLabel.includes("CGK") || stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {
+        drawRoute = true;
+      } else if (stepLabel.includes("DPS") || stepLabel.includes("Jemput")) {
+        drawRoute = true;
+      }
+      
+      if (!drawRoute) return;
+      
+      const customerCoordsRaw = getCustomerCoords(t);
+      let hubCoords = getCoordinatesForHub(t.userCity || "");
+      let destinationCoords = { lat: customerCoordsRaw.lat, lng: customerCoordsRaw.lng };
+      let isFlight = false;
+      
+      if (stepLabel.includes("CGK") || stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {
+        hubCoords = { lat: -6.125, lng: 106.656 };
+        destinationCoords = { lat: -8.748, lng: 115.167 };
+        isFlight = true;
+      } else if (stepLabel.includes("DPS") || stepLabel.includes("Jemput")) {
+        hubCoords = { lat: -8.748, lng: 115.167 };
+        destinationCoords = { lat: -8.798, lng: 115.228 };
+      }
+      
+      const routeKey = `${t.id}-${hubCoords.lat}-${hubCoords.lng}-${destinationCoords.lat}-${destinationCoords.lng}`;
+      if (roadRoutes[routeKey]) return; // already fetched
+      
+      // Flights don't run on roads - draw a direct line
+      if (isFlight) {
+        setRoadRoutes(prev => ({
+          ...prev,
+          [routeKey]: [
+            [hubCoords.lat, hubCoords.lng],
+            [destinationCoords.lat, destinationCoords.lng]
+          ]
+        }));
+        return;
+      }
+      
+      try {
+        const res = await fetch(`https://router.projectosrm.org/route/v1/driving/${hubCoords.lng},${hubCoords.lat};${destinationCoords.lng},${destinationCoords.lat}?overview=full&geometries=geojson`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.routes && data.routes[0]) {
+            const path = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
+            setRoadRoutes(prev => ({
+              ...prev,
+              [routeKey]: path
+            }));
+          }
+        }
+      } catch (err) {
+        console.error("OSRM fetch failed:", err);
+        // Fallback to straight line
+        setRoadRoutes(prev => ({
+          ...prev,
+          [routeKey]: [
+            [hubCoords.lat, hubCoords.lng],
+            [destinationCoords.lat, destinationCoords.lng]
+          ]
+        }));
+      }
+    });
+  }, [travelers]);
 
   // Set up vehicle move animation interval if there is an active tracking step in progress
   useEffect(() => {
@@ -397,12 +495,30 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
         const activeT = travelers.find(t => t.activeStep && t.activeStep.status === "in-progress");
         if (!activeT) return null;
         
-        const { distanceKm, etaMinutes } = getTravelerETA(activeT, progress);
+        const customerCoordsRaw = getCustomerCoords(activeT);
+        const stepLabel = activeT.activeStep?.label || "";
+        let hubCoords = getCoordinatesForHub(activeT.userCity || "");
+        let destinationCoords = { lat: customerCoordsRaw.lat, lng: customerCoordsRaw.lng };
+        
+        if (stepLabel.includes("CGK") || stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {
+          hubCoords = { lat: -6.125, lng: 106.656 };
+          destinationCoords = { lat: -8.748, lng: 115.167 };
+        } else if (stepLabel.includes("DPS") || stepLabel.includes("Jemput")) {
+          hubCoords = { lat: -8.748, lng: 115.167 };
+          destinationCoords = { lat: -8.798, lng: 115.228 };
+        }
+        
+        const routeKey = `${activeT.id}-${hubCoords.lat}-${hubCoords.lng}-${destinationCoords.lat}-${destinationCoords.lng}`;
+        const roadPath = roadRoutes[routeKey];
+        const { distanceKm, etaMinutes, isRealDriverGPS } = getTravelerETA(activeT, progress, roadPath);
         
         return (
           <div className="absolute bottom-4 right-3 bg-white/95 backdrop-blur-xs border border-border rounded-xl p-3 shadow-sm max-w-[240px]" style={{ zIndex: 1001 }}>
-            <div className="text-[9px] font-black tracking-widest text-[#FF3300] mb-1" style={{ fontFamily: "Montserrat, sans-serif" }}>
-              ESTIMASI PENJEMPUTAN
+            <div className="text-[9px] font-black tracking-widest text-[#FF3300] mb-1 flex items-center justify-between gap-1" style={{ fontFamily: "Montserrat, sans-serif" }}>
+              <span>ESTIMASI PENJEMPUTAN</span>
+              {isRealDriverGPS && (
+                <span className="bg-emerald-100 text-emerald-800 text-[8px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">GPS Live</span>
+              )}
             </div>
             <div className="text-xs font-bold text-foreground leading-normal">
               {activeT.activeStep?.label?.includes("Rumah") 
@@ -438,13 +554,26 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
             const stepLabel = t.activeStep?.label || "";
             const stepStatus = t.activeStep?.status || "waiting";
             
-            // Resolve exact coordinates & physics calculations
-            const { distanceKm, etaMinutes, vehicleCoords, destinationCoords, hubCoords, trackType } = getTravelerETA(t, progress);
-            
-            // Check if GPS is accurate (saved in profile)
             const customerCoordsRaw = getCustomerCoords(t);
             const isGPSAccurate = customerCoordsRaw.isGPS;
             const customerCoords = { lat: customerCoordsRaw.lat, lng: customerCoordsRaw.lng };
+            
+            let currentHubCoords = getCoordinatesForHub(t.userCity || "");
+            let currentDestinationCoords = customerCoords;
+            
+            if (stepLabel.includes("CGK") || stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {
+              currentHubCoords = { lat: -6.125, lng: 106.656 };
+              currentDestinationCoords = { lat: -8.748, lng: 115.167 };
+            } else if (stepLabel.includes("DPS") || stepLabel.includes("Jemput")) {
+              currentHubCoords = { lat: -8.748, lng: 115.167 };
+              currentDestinationCoords = { lat: -8.798, lng: 115.228 };
+            }
+            
+            const routeKey = `${t.id}-${currentHubCoords.lat}-${currentHubCoords.lng}-${currentDestinationCoords.lat}-${currentDestinationCoords.lng}`;
+            const roadPath = roadRoutes[routeKey];
+            
+            // Resolve exact coordinates & physics calculations
+            const { distanceKm, etaMinutes, vehicleCoords, destinationCoords, hubCoords, trackType } = getTravelerETA(t, progress, roadPath);
             
             // Determine whether to draw the route line
             let drawRoute = false;
@@ -483,7 +612,7 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
                       </div>
                       {isGPSAccurate && (
                         <div style={{ fontSize: 10, color: "#999", marginTop: 4 }}>
-                          {t.userLat?.toFixed(6)}, {t.userLng?.toFixed(6)}
+                           {t.userLat?.toFixed(6)}, {t.userLng?.toFixed(6)}
                         </div>
                       )}
                     </div>
@@ -507,10 +636,10 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
                   </Marker>
                 )}
 
-                {/* 3. Polyline Route between Hub and Destination (Solid bold red line) */}
+                {/* 3. Polyline Route between Hub and Destination (OSRM clean road following) */}
                 {drawRoute && (
                   <Polyline
-                    positions={[
+                    positions={roadPath || [
                       [hubCoords.lat, hubCoords.lng],
                       [destinationCoords.lat, destinationCoords.lng]
                     ]}

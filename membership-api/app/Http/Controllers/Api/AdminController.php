@@ -258,6 +258,8 @@ class AdminController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'status' => 'required|in:waiting,in-progress,done',
+            'driver_lat' => 'nullable|numeric|between:-90,90',
+            'driver_lng' => 'nullable|numeric|between:-180,180',
         ]);
 
         if ($validator->fails()) {
@@ -265,7 +267,16 @@ class AdminController extends Controller
         }
 
         $step = TripStep::findOrFail($id);
-        $step->update(['status' => $request->status]);
+        
+        $updateData = ['status' => $request->status];
+        if ($request->has('driver_lat')) {
+            $updateData['driver_lat'] = $request->driver_lat;
+        }
+        if ($request->has('driver_lng')) {
+            $updateData['driver_lng'] = $request->driver_lng;
+        }
+        
+        $step->update($updateData);
 
         // Automatically update the main Trip status based on steps
         $trip = $step->trip;

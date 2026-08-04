@@ -196,6 +196,8 @@ export default function TravelStatusPage() {
       status: activeStep.status,
       officer: activeStep.officer,
       time: activeStep.time,
+      driverLat: activeStep.driver_lat,
+      driverLng: activeStep.driver_lng,
     } : null,
     userCity: userProfile?.city,
     userAddress: userProfile?.address,
