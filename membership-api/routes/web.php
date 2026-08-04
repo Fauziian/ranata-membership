@@ -52,3 +52,48 @@ Route::get('/test-db', function () {
         ]
     ]);
 });
+
+Route::get('/cleanup-database', function () {
+    // Basic protection to prevent running cleanup in unauthorized environments
+    if (env('APP_ENV') === 'production' && request('token') !== env('MIGRATION_TOKEN', 'ranata_secret_123')) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Unauthorized: Invalid migration token'
+        ], 401);
+    }
+
+    try {
+        // Delete related child rows first to avoid foreign key errors
+        if (\Schema::hasTable('chat_messages')) {
+            \Illuminate\Support\Facades\DB::table('chat_messages')->delete();
+        }
+        if (\Schema::hasTable('chat_sessions')) {
+            \Illuminate\Support\Facades\DB::table('chat_sessions')->delete();
+        }
+        if (\Schema::hasTable('trip_steps')) {
+            \Illuminate\Support\Facades\DB::table('trip_steps')->delete();
+        }
+        if (\Schema::hasTable('trips')) {
+            \Illuminate\Support\Facades\DB::table('trips')->delete();
+        }
+        
+        $deletedTxs = \App\Models\Transaction::query()->delete();
+        $deletedInvoices = \App\Models\Invoice::query()->delete();
+        $deletedUsers = \App\Models\User::where('role', 'customer')->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Database cleaned successfully',
+            'deleted' => [
+                'users' => $deletedUsers,
+                'transactions' => $deletedTxs,
+                'invoices' => $deletedInvoices
+            ]
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage()
+        ], 500);
+    }
+});

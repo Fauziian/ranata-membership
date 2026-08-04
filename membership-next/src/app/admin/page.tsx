@@ -32,6 +32,47 @@ export default function AdminDashboardPage() {
       } else {
         toast.error(res.message ?? "Gagal memuat statistik admin.");
       }
+
+      // Fetch active trips/travelers dynamically
+      const tripsRes = await adminApi.getTrips();
+      if (tripsRes.success && tripsRes.data) {
+        const mappedTravelers = tripsRes.data.map((trip: any) => {
+          let location = "Menunggu";
+          let activeStep = trip.steps?.find((s: any) => s.status === "in-progress");
+          if (!activeStep) {
+            const doneSteps = trip.steps?.filter((s: any) => s.status === "done") || [];
+            if (doneSteps.length > 0) {
+              activeStep = doneSteps[doneSteps.length - 1];
+            }
+          }
+          if (!activeStep && trip.steps && trip.steps.length > 0) {
+            activeStep = trip.steps[0];
+          }
+          if (activeStep) {
+            const stepLabel = activeStep.label || "";
+            if (stepLabel.includes("Rumah")) {
+              location = "Rumah Customer (Jakarta)";
+            } else if (stepLabel.includes("CGK")) {
+              location = "Terminal 3 Bandara CGK";
+            } else if (stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {
+              location = "Di Udara (Flight GA-403)";
+            } else if (stepLabel.includes("DPS") || stepLabel.includes("Bali")) {
+              location = "Bandara Ngurah Rai Bali";
+            } else if (stepLabel.includes("Hotel") || stepLabel.includes("Check-in")) {
+              location = "Hotel Partner (Bali)";
+            } else {
+              location = activeStep.label;
+            }
+          }
+          return {
+            id: trip.id,
+            name: trip.user?.name || "Customer",
+            location: location,
+            status: trip.status,
+          };
+        });
+        setTravelers(mappedTravelers);
+      }
     } catch (err) {
       toast.error("Terjadi kesalahan koneksi atau Anda tidak memiliki akses admin.");
     } finally {
@@ -46,19 +87,18 @@ export default function AdminDashboardPage() {
       return;
     }
     fetchDashboardStats();
-    setTravelers(getTravelersList());
   }, [router]);
 
   const handleRefresh = () => {
     fetchDashboardStats();
-    setTravelers(getTravelersList());
   };
 
   // Dynamic calculations from statsData API
   const totalMembersCount = statsData?.total_members ?? 0;
   const pendingTxCount = statsData?.pending_verify ?? 0;
-  const activeTravelersCount = 4; // Mocked active travelers
+  const activeTravelersCount = travelers.filter((t: any) => t.status !== "done").length;
   const totalPoints = statsData?.total_points ?? 0;
+  const waitingTravelersCount = travelers.filter((t: any) => t.status === "waiting").length;
 
   const stats = [
     { 
@@ -72,7 +112,7 @@ export default function AdminDashboardPage() {
     { 
       label: "Perjalanan Aktif", 
       value: activeTravelersCount, 
-      change: "2 menunggu jemput", 
+      change: `${waitingTravelersCount} menunggu jemput`, 
       icon: MapPin, 
       color: "#F59E0B",
       path: "/admin/map"
