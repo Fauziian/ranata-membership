@@ -41,6 +41,8 @@ class AdminController extends Controller
             'points'    => $m->points,
             'status'    => $m->email_verified_at ? 'Active' : 'Inactive',
             'joined'    => $m->created_at->format('M Y'),
+            'city'      => $m->city,
+            'address'   => $m->address,
         ]);
 
         return response()->json([

@@ -218,9 +218,16 @@ export default function AdminMembersPage() {
                 </div>
 
                 <div className="col-span-2">
-                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Alamat Domisili (Mock)</div>
+                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Alamat Domisili</div>
                   <div className="font-semibold mt-0.5 text-foreground leading-normal">
-                    Jl. Jenderal Sudirman No. 45, Kebayoran Baru, Jakarta Selatan
+                    {selectedMember.address && selectedMember.address !== "Belum diatur" ? (
+                      <>
+                        {selectedMember.address}
+                        {selectedMember.city && selectedMember.city !== "Belum diatur" && `, ${selectedMember.city}`}
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground italic">Belum diatur</span>
+                    )}
                   </div>
                 </div>
               </div>
