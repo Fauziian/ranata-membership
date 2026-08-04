@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { RanataLogo } from "@/components/shared";
 import { useIsMobile } from "@/components/ui/use-mobile";
-import { getTransactionsList } from "@/lib/data-fetchers";
 import { adminApi } from "@/lib/api";
 
 export default function AdminLayout({
@@ -24,15 +23,12 @@ export default function AdminLayout({
   // Sidebar open/collapse state for mobile
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [pendingTxCount, setPendingTxCount] = useState(0);
 
   // Close mobile drawer when route changes
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
-
-  // Read transactions list to get dynamic pending count
-  const allTxs = getTransactionsList ? getTransactionsList() : [];
-  const pendingTxCount = allTxs.filter((t: any) => t.status === "pending").length;
 
   useEffect(() => {
     const checkUnreadChats = async () => {
@@ -52,8 +48,25 @@ export default function AdminLayout({
       }
     };
 
+    const checkPendingTransactions = async () => {
+      try {
+        const res = await adminApi.getTransactions("pending");
+        if (res.success && res.data) {
+          setPendingTxCount(res.data.length);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
     checkUnreadChats();
-    const interval = setInterval(checkUnreadChats, 3000);
+    checkPendingTransactions();
+
+    const interval = setInterval(() => {
+      checkUnreadChats();
+      checkPendingTransactions();
+    }, 3000);
+
     return () => {
       clearInterval(interval);
     };
