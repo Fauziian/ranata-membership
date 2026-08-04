@@ -37,3 +37,18 @@ Route::get('/migrate', function () {
         ], 500);
     }
 });
+
+Route::get('/test-db', function () {
+    return response()->json([
+        'drivers' => \PDO::getAvailableDrivers(),
+        'env' => [
+            'DB_CONNECTION' => env('DB_CONNECTION'),
+            'DB_HOST' => env('DB_HOST'),
+            'DB_PORT' => env('DB_PORT'),
+            'DB_DATABASE' => env('DB_DATABASE'),
+            'DB_USERNAME' => env('DB_USERNAME'),
+            'APP_DEBUG' => env('APP_DEBUG'),
+            'APP_ENV' => env('APP_ENV'),
+        ]
+    ]);
+});
