@@ -79,7 +79,7 @@ Route::get('/cleanup-database', function () {
         
         $deletedTxs = \App\Models\Transaction::query()->delete();
         $deletedInvoices = \App\Models\Invoice::query()->delete();
-        $deletedUsers = \App\Models\User::where('role', 'customer')->delete();
+        $deletedUsers = \App\Models\User::where('email', '!=', 'admin@ranatatour.com')->delete();
 
         return response()->json([
             'status' => 'success',
@@ -96,4 +96,14 @@ Route::get('/cleanup-database', function () {
             'message' => $e->getMessage()
         ], 500);
     }
+});
+
+Route::get('/debug-db', function () {
+    return response()->json([
+        'users' => \App\Models\User::all(),
+        'trips' => \Illuminate\Support\Facades\DB::table('trips')->get(),
+        'trip_steps' => \Illuminate\Support\Facades\DB::table('trip_steps')->get(),
+        'transactions' => \App\Models\Transaction::all(),
+        'invoices' => \App\Models\Invoice::all(),
+    ]);
 });
