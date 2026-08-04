@@ -26,6 +26,7 @@ export default function InvoicesPage() {
   // Payment modal visibility: "pay" | null
   const [payStep, setPayStep] = useState<"pay" | null>(null);
   const [cancelling, setCancelling] = useState<number | null>(null);
+  const [simulating, setSimulating] = useState<number | null>(null);
 
   // Dynamic Midtrans configurations
   const [midtransClientKey, setMidtransClientKey] = useState<string>("");
@@ -205,6 +206,31 @@ export default function InvoicesPage() {
       toast.error("Terjadi kesalahan koneksi.");
     } finally {
       setCancelling(null);
+    }
+  };
+
+  const handleSimulatePayment = async (id: number) => {
+    try {
+      setSimulating(id);
+      const res = await memberApi.processPayment(id);
+      if (res.success) {
+        toast.success("Simulasi pembayaran berhasil! Akun Anda telah di-update.");
+        if (res.data && res.data.user) {
+          setStoredUser(res.data.user);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("storage"));
+            window.dispatchEvent(new CustomEvent("user-updated"));
+          }
+        }
+        fetchInvoices();
+        resetModal();
+      } else {
+        toast.error(res.message ?? "Gagal memproses simulasi pembayaran.");
+      }
+    } catch (err) {
+      toast.error("Terjadi kesalahan koneksi.");
+    } finally {
+      setSimulating(null);
     }
   };
 
@@ -417,6 +443,14 @@ export default function InvoicesPage() {
                     Bayar Sekarang (Midtrans)
                   </button>
                   <button 
+                    onClick={() => handleSimulatePayment(selectedInv.id)} 
+                    disabled={simulating !== null}
+                    className="w-full py-3.5 rounded-xl text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50"
+                  >
+                    <CheckCircle className="w-4.5 h-4.5 text-amber-700" />
+                    {simulating === selectedInv.id ? "Memproses..." : "Simulasi Pembayaran (Tanpa Bayar Asli)"}
+                  </button>
+                  <button 
                     onClick={() => handleCancelInvoice(selectedInv.id)} 
                     disabled={cancelling !== null}
                     className="w-full py-3 rounded-xl text-red-700 font-bold text-xs transition-all flex items-center justify-center gap-2 hover:bg-red-50 border border-red-200 disabled:opacity-50"
@@ -436,12 +470,22 @@ export default function InvoicesPage() {
                   <p className="text-[10px] text-red-700 leading-relaxed max-w-xs mx-auto">
                     Kunci Server Midtrans (`MIDTRANS_SERVER_KEY`) belum terpasang atau tidak valid di backend Laravel. Silakan isi file `.env` dengan kredensial Midtrans Sandbox/Production yang benar.
                   </p>
-                  <button
-                    onClick={fetchInvoices}
-                    className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 text-[10px] font-bold rounded-lg transition-colors"
-                  >
-                    Coba Hubungkan Ulang
-                  </button>
+                  <div className="flex gap-2 justify-center">
+                    <button
+                      onClick={fetchInvoices}
+                      className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-800 text-[10px] font-bold rounded-lg transition-colors"
+                    >
+                      Coba Hubungkan Ulang
+                    </button>
+                    <button 
+                      onClick={() => handleSimulatePayment(selectedInv.id)} 
+                      disabled={simulating !== null}
+                      className="px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-bold rounded-lg transition-colors border border-amber-300 flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5 text-amber-700" />
+                      {simulating === selectedInv.id ? "Memproses..." : "Simulasi Pembayaran"}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
