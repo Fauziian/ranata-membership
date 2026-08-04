@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   User, Hash, Settings, CheckCircle, AlertCircle, Eye,
-  ChevronRight, Camera, Upload
+  ChevronRight, Camera, Upload, MapPin
 } from "lucide-react";
 import { TierBadge } from "@/components/shared";
 import { getMemberProfile } from "@/lib/data-fetchers";
@@ -129,6 +129,55 @@ export default function CustomerProfilePage() {
   const [bioSaved, setBioSaved] = useState(false);
   const [pwdError, setPwdError] = useState("");
   const [pwdSaved, setPwdSaved] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+
+  const handleUseGPS = () => {
+    if (!navigator.geolocation) {
+      toast.error("Browser Anda tidak mendukung deteksi lokasi (GPS).");
+      return;
+    }
+
+    setGpsLoading(true);
+    toast.loading("Mendeteksi lokasi GPS Anda...", { id: "gps-fetch" });
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            const displayName = data.display_name || "";
+            const city = data.address?.city || data.address?.town || data.address?.municipality || data.address?.county || "";
+            
+            setBio(b => ({
+              ...b,
+              city: city,
+              address: displayName
+            }));
+            toast.success("Lokasi GPS berhasil dideteksi!", { id: "gps-fetch" });
+          } else {
+            toast.error("Gagal mendapatkan detail alamat dari GPS.", { id: "gps-fetch" });
+          }
+        } catch (error) {
+          toast.error("Terjadi kesalahan saat menghubungi server peta.", { id: "gps-fetch" });
+        } finally {
+          setGpsLoading(false);
+        }
+      },
+      (error) => {
+        setGpsLoading(false);
+        let errorMsg = "Gagal mendeteksi lokasi GPS Anda.";
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMsg = "Akses lokasi ditolak. Silakan izinkan akses lokasi (GPS) pada browser Anda.";
+        }
+        toast.error(errorMsg, { id: "gps-fetch" });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   // Local Profile Image Preview State
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -349,7 +398,20 @@ export default function CustomerProfilePage() {
           <Field label="Kota Domisili" value={bio.city} field="city" placeholder="Kota Anda" bioEditing={bioEditing} onChange={handleBioChange} />
           <Field label="Nomor Member (tidak dapat diubah)" value={bio.memberId} field="memberId" readOnly bioEditing={bioEditing} onChange={handleBioChange} />
           <div className="md:col-span-2">
-            <label className="block text-xs font-semibold text-muted-foreground mb-1.5">Alamat</label>
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="block text-xs font-semibold text-muted-foreground">Alamat</label>
+              {bioEditing && (
+                <button
+                  type="button"
+                  onClick={handleUseGPS}
+                  disabled={gpsLoading}
+                  className="flex items-center gap-1 text-[10px] font-bold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100/80 px-2 py-1 rounded-lg border border-amber-200 transition-all select-none disabled:opacity-50"
+                >
+                  <MapPin className="w-3 h-3" />
+                  {gpsLoading ? "Mendeteksi..." : "Gunakan GPS / Lokasi Saat Ini"}
+                </button>
+              )}
+            </div>
             <textarea
               value={bio.address}
               readOnly={!bioEditing}

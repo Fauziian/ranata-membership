@@ -37,10 +37,10 @@ class MemberController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name'      => 'sometimes|string|max:255',
-            'phone'     => 'sometimes|string|max:20',
-            'city'      => 'sometimes|string|max:100',
-            'address'   => 'sometimes|string',
-            'birthdate' => 'sometimes|string',
+            'phone'     => 'sometimes|string|max:20|nullable',
+            'city'      => 'sometimes|string|max:100|nullable',
+            'address'   => 'sometimes|string|nullable',
+            'birthdate' => 'sometimes|string|nullable',
             'avatar'    => 'sometimes|string|nullable',
         ]);
 
