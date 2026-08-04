@@ -5,10 +5,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
-        'http://localhost:3001',
-        'http://localhost:3000',
-    ],
+    'allowed_origins' => array_filter(explode(',', env('FRONTEND_URL', 'http://localhost:3000,http://localhost:3001,https://ranata-membership.vercel.app'))),
 
     'allowed_origins_patterns' => [],
 
