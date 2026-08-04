@@ -12,37 +12,13 @@ use Illuminate\Support\Facades\Validator;
 
 class ChatController extends Controller
 {
-    /**
-     * Helper to get initial messages
-     */
     private function getInitMessages($userName): array
     {
-        $firstName = explode(' ', $userName)[0];
         return [
             [
                 'sender' => 'admin',
                 'text' => 'Selamat datang di Ranata Tour! Saya Rina, siap membantu Anda. Ada yang bisa kami bantu hari ini?',
-                'time' => '09:00',
-            ],
-            [
-                'sender' => 'customer',
-                'text' => 'Halo, saya ingin pesan tiket pesawat ke Bali tanggal 10-15 Oktober, 2 orang dewasa.',
-                'time' => '09:02',
-            ],
-            [
-                'sender' => 'admin',
-                'text' => "Baik Pak {$firstName}! Apakah prefer penerbangan pagi atau malam? Dan keberangkatan dari kota mana?",
-                'time' => '09:03',
-            ],
-            [
-                'sender' => 'customer',
-                'text' => 'Dari Jakarta, pagi hari. Budget sekitar Rp 1.5 juta per orang.',
-                'time' => '09:05',
-            ],
-            [
-                'sender' => 'admin',
-                'text' => 'Saya temukan pilihan terbaik: Garuda GA-403 CGK-DPS 06:30 = Rp 1.350.000/orang. Total 2 orang Rp 2.700.000. Apakah saya buatkan invoicenya sekarang, Pak?',
-                'time' => '09:08',
+                'time' => date('H:i'),
             ]
         ];
     }
