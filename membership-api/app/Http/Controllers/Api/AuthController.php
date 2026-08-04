@@ -263,6 +263,8 @@ class AuthController extends Controller
             'points'    => $user->points,
             'city'      => $user->city,
             'address'   => $user->address,
+            'latitude'  => $user->latitude,
+            'longitude' => $user->longitude,
             'birthdate' => $user->birthdate,
             'avatar'    => $user->avatar,
         ];

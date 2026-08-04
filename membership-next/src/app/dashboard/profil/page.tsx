@@ -130,6 +130,8 @@ export default function CustomerProfilePage() {
   const [pwdError, setPwdError] = useState("");
   const [pwdSaved, setPwdSaved] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
+  // GPS coordinates captured from browser geolocation
+  const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const handleUseGPS = () => {
     if (!navigator.geolocation) {
@@ -151,6 +153,9 @@ export default function CustomerProfilePage() {
             const data = await response.json();
             const displayName = data.display_name || "";
             const city = data.address?.city || data.address?.town || data.address?.municipality || data.address?.county || "";
+            
+            // Store the raw GPS coordinates
+            setGpsCoords({ lat: latitude, lng: longitude });
             
             setBio(b => ({
               ...b,
@@ -214,6 +219,8 @@ export default function CustomerProfilePage() {
         city: bio.city,
         address: bio.address,
         birthdate: bio.birthdate,
+        // Include GPS coordinates if they were captured this session
+        ...(gpsCoords ? { latitude: gpsCoords.lat, longitude: gpsCoords.lng } : {}),
         ...(avatarBase64 ? { avatar: avatarBase64 } : {}),
       });
 

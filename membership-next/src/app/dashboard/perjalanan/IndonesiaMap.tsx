@@ -46,6 +46,17 @@ const cityCoordinatesMap: Record<string, { lat: number; lng: number }> = {
   batam: { lat: 1.0901, lng: 104.0301 },
 };
 
+// Resolve customer coordinates: prefer exact GPS, fall back to city lookup
+const getCustomerCoords = (t: any) => {
+  // 1. Use exact GPS coordinates if available
+  if (t.userLat && t.userLng) {
+    return { lat: t.userLat, lng: t.userLng, isGPS: true };
+  }
+  // 2. Fall back to city/address name lookup
+  const coords = getCoordinatesForCity(t.userCity || "", t.userAddress || "");
+  return { ...coords, isGPS: false };
+};
+
 const getCoordinatesForCity = (city: string, address: string) => {
   const defaultCoords = { lat: -6.2088, lng: 106.8456 }; // Jakarta
   const cleanCity = (city || "").toLowerCase().trim();
@@ -162,11 +173,9 @@ function MapController({ travelers, progress }: { travelers: any[]; progress: nu
   useEffect(() => {
     if (travelers.length === 0) return;
     
-    // Fit bounds based on customer locations
+    // Use exact GPS coordinates when available, fall back to city lookup
     const points: [number, number][] = travelers.map(t => {
-      const city = t.userCity || "";
-      const address = t.userAddress || "";
-      const coords = getCoordinatesForCity(city, address);
+      const coords = getCustomerCoords(t);
       return [coords.lat, coords.lng];
     });
 
@@ -183,7 +192,9 @@ function MapController({ travelers, progress }: { travelers: any[]; progress: nu
 
     if (points.length > 0) {
       const bounds = L.latLngBounds(points);
-      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 13 });
+      // Use tighter zoom (15) when we have exact GPS, looser (13) for city approximation
+      const hasGPS = travelers.some(t => t.userLat && t.userLng);
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: hasGPS ? 15 : 13 });
     }
   }, [travelers, map]);
 
@@ -289,8 +300,10 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
             const stepLabel = t.activeStep?.label || "";
             const stepStatus = t.activeStep?.status || "waiting";
             
-            // Calculate pickup location (home coordinates)
-            const customerCoords = getCoordinatesForCity(t.userCity || "", t.userAddress || "");
+            // Use real GPS coordinates if available, fallback to city lookup
+            const customerCoordsRaw = getCustomerCoords(t);
+            const customerCoords = { lat: customerCoordsRaw.lat, lng: customerCoordsRaw.lng };
+            const isGPSAccurate = customerCoordsRaw.isGPS;
             
             // Determine coordinate states
             let hubCoords = getCoordinatesForHub(t.userCity || "");
@@ -359,10 +372,24 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
                   icon={stepLabel.includes("Hotel") ? createHotelIcon() : createHomeIcon()}
                 >
                   <Popup>
-                    <div style={{ minWidth: 180, fontFamily: "Montserrat, sans-serif" }}>
-                      <div style={{ fontWeight: 800, fontSize: 13, color: "#111", marginBottom: 2 }}>{t.name} (Customer)</div>
-                      <div style={{ fontSize: 11, color: "#555", marginBottom: 1 }}>🏠 Alamat: {t.userAddress || "Belum diatur"}</div>
-                      <div style={{ fontSize: 11, color: "#555" }}>🏙️ Kota: {t.userCity || "Belum diatur"}</div>
+                    <div style={{ minWidth: 200, fontFamily: "Montserrat, sans-serif" }}>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: "#111", marginBottom: 4 }}>{t.name} (Customer)</div>
+                      <div style={{ fontSize: 11, color: "#555", marginBottom: 2 }}>🏠 {t.userAddress || "Belum diatur"}</div>
+                      <div style={{ fontSize: 11, color: "#555", marginBottom: 6 }}>🏙️ {t.userCity || "Belum diatur"}</div>
+                      <div style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        background: isGPSAccurate ? "#dcfce7" : "#fff7ed",
+                        color: isGPSAccurate ? "#15803d" : "#c2410c",
+                        border: `1px solid ${isGPSAccurate ? "#86efac" : "#fed7aa"}`,
+                        borderRadius: 99, padding: "2px 8px", fontSize: 10, fontWeight: 700,
+                      }}>
+                        {isGPSAccurate ? "📍 GPS Akurat" : "📍 Perkiraan Kota"}
+                      </div>
+                      {isGPSAccurate && (
+                        <div style={{ fontSize: 10, color: "#999", marginTop: 4 }}>
+                          {t.userLat?.toFixed(6)}, {t.userLng?.toFixed(6)}
+                        </div>
+                      )}
                     </div>
                   </Popup>
                 </Marker>

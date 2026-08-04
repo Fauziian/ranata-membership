@@ -175,6 +175,9 @@ export default function AdminMapPage() {
       } : null,
       userCity: trip.user?.city,
       userAddress: trip.user?.address,
+      // Real GPS coordinates saved in user profile
+      userLat: trip.user?.latitude ?? null,
+      userLng: trip.user?.longitude ?? null,
     };
   });
 

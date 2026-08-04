@@ -42,6 +42,8 @@ class MemberController extends Controller
             'address'   => 'sometimes|string|nullable',
             'birthdate' => 'sometimes|string|nullable',
             'avatar'    => 'sometimes|string|nullable',
+            'latitude'  => 'sometimes|numeric|nullable|between:-90,90',
+            'longitude' => 'sometimes|numeric|nullable|between:-180,180',
         ]);
 
         if ($validator->fails()) {
@@ -51,7 +53,7 @@ class MemberController extends Controller
             ], 422);
         }
 
-        $user->fill($request->only(['name', 'phone', 'city', 'address', 'birthdate']));
+        $user->fill($request->only(['name', 'phone', 'city', 'address', 'birthdate', 'latitude', 'longitude']));
 
         if ($request->has('avatar')) {
             $avatarData = $request->input('avatar');
@@ -465,6 +467,8 @@ class MemberController extends Controller
             'points'         => $user->points,
             'city'           => $user->city,
             'address'        => $user->address,
+            'latitude'       => $user->latitude,
+            'longitude'      => $user->longitude,
             'birthdate'      => $user->birthdate,
             'avatar'         => $user->avatar,
             'joined_date'    => $user->created_at->format('M Y'),

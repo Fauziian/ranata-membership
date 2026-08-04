@@ -143,6 +143,15 @@ export default function TravelStatusPage() {
     }
     const stepLabel = activeStep?.label || "";
     if (stepLabel.includes("Rumah")) {
+      // Priority: use actual GPS coordinates saved in profile
+      const hasGPS = userProfile?.latitude && userProfile?.longitude;
+      if (hasGPS) {
+        const locationLabel = userProfile.city 
+          ? `Rumah Customer (${userProfile.city})`
+          : "Rumah Customer";
+        return { lat: userProfile.latitude, lng: userProfile.longitude, location: locationLabel };
+      }
+      // Fallback to city-based lookup
       const userCity = userProfile?.city && userProfile.city !== "Belum diatur" ? userProfile.city : null;
       const locationLabel = userCity ? `Rumah Customer (${userCity})` : "Rumah Customer (Belum diatur)";
       const coords = getCoordinatesForCity(userProfile?.city || "", userProfile?.address || "");
@@ -190,6 +199,9 @@ export default function TravelStatusPage() {
     } : null,
     userCity: userProfile?.city,
     userAddress: userProfile?.address,
+    // Real GPS coordinates from DB — used directly by IndonesiaMap
+    userLat: userProfile?.latitude ?? null,
+    userLng: userProfile?.longitude ?? null,
   }] : [];
 
   const overallStatus = trip?.status || "waiting";

@@ -20,6 +20,8 @@ export interface ApiUser {
   points: number;
   city: string | null;
   address: string | null;
+  latitude: number | null;
+  longitude: number | null;
   birthdate: string | null;
   avatar: string | null;
   joined_date?: string;
@@ -137,7 +139,7 @@ export const authApi = {
 export const memberApi = {
   getProfile: () => apiFetch<ApiUser>("/member/profile"),
 
-  updateProfile: (data: Partial<ApiUser>) =>
+  updateProfile: (data: Partial<ApiUser> & { latitude?: number | null; longitude?: number | null }) =>
     apiFetch<ApiUser>("/member/profile", {
       method: "PUT",
       body: JSON.stringify(data),
