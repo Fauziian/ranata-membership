@@ -428,7 +428,8 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
       }
 
       try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${startCoords.lng},${startCoords.lat};${destinationCoords.lng},${destinationCoords.lat}?overview=full&geometries=geojson`;
+        // Use internal Next.js proxy to avoid browser CORS issues with OSRM
+        const url = `/api/osrm-route?startLng=${startCoords.lng}&startLat=${startCoords.lat}&endLng=${destinationCoords.lng}&endLat=${destinationCoords.lat}`;
         const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
@@ -437,7 +438,7 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
             setRoadRoutes(prev => ({ ...prev, [routeKey]: path }));
           }
         } else {
-          throw new Error(`OSRM HTTP ${res.status}`);
+          throw new Error(`Route proxy HTTP ${res.status}`);
         }
       } catch (err) {
         console.warn("OSRM fetch failed, fallback straight line:", err);
