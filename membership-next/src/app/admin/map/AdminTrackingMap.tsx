@@ -248,8 +248,8 @@ export default function AdminTrackingMap({ travelers, selectedId }: Props) {
       const driverLng = t.activeStep.driverLng ? Number(t.activeStep.driverLng) : null;
 
       // Round to 3dp (~111m) so key changes when driver moves ~50m
-      const sLat = driverLat ? Math.round(driverLat * 1000) / 1000 : -6.125;
-      const sLng = driverLng ? Math.round(driverLng * 1000) / 1000 : 106.656;
+      const sLat = driverLat ? Math.round(driverLat * 1000) / 1000 : -6.9025;
+      const sLng = driverLng ? Math.round(driverLng * 1000) / 1000 : 107.5754;
       const key = `${t.id}:${sLat},${sLng}→${dLat.toFixed(4)},${dLng.toFixed(4)}`;
 
       if (!routes[key]) {
@@ -289,8 +289,8 @@ export default function AdminTrackingMap({ travelers, selectedId }: Props) {
       </div>
 
       <MapContainer
-        center={[-6.2088, 106.8456]}
-        zoom={11}
+        center={[-6.9025, 107.5754]}
+        zoom={12}
         style={{ width: "100%", height: "100%" }}
         zoomControl
         scrollWheelZoom
@@ -309,8 +309,8 @@ export default function AdminTrackingMap({ travelers, selectedId }: Props) {
           const driverLat = t.activeStep?.driverLat ? Number(t.activeStep.driverLat) : null;
           const driverLng = t.activeStep?.driverLng ? Number(t.activeStep.driverLng) : null;
 
-          const sLat = driverLat ? Math.round(driverLat * 1000) / 1000 : -6.125;
-          const sLng = driverLng ? Math.round(driverLng * 1000) / 1000 : 106.656;
+          const sLat = driverLat ? Math.round(driverLat * 1000) / 1000 : -6.9025;
+          const sLng = driverLng ? Math.round(driverLng * 1000) / 1000 : 107.5754;
           const key = `${t.id}:${sLat},${sLng}→${dLat.toFixed(4)},${dLng.toFixed(4)}`;
           const route = routes[key];
 

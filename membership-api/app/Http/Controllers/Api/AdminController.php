@@ -43,6 +43,8 @@ class AdminController extends Controller
             'joined'    => $m->created_at->format('M Y'),
             'city'      => $m->city,
             'address'   => $m->address,
+            'latitude'  => $m->latitude,
+            'longitude' => $m->longitude,
         ]);
 
         return response()->json([
@@ -308,6 +310,34 @@ class AdminController extends Controller
             'success' => true,
             'message' => 'Status tahapan perjalanan berhasil diperbarui.',
             'data'    => $trip->fresh('steps'),
+        ]);
+    }
+
+    /**
+     * PUT /api/admin/members/{id}
+     */
+    public function updateMember(Request $request, int $id): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'name'      => 'required|string|max:255',
+            'phone'     => 'nullable|string|max:20',
+            'city'      => 'nullable|string|max:255',
+            'address'   => 'nullable|string',
+            'latitude'  => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        $user = User::findOrFail($id);
+        $user->update($request->only(['name', 'phone', 'city', 'address', 'latitude', 'longitude']));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profil member berhasil diperbarui.',
+            'data'    => $user,
         ]);
     }
 }

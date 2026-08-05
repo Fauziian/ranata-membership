@@ -11,6 +11,73 @@ export default function AdminMembersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedMember, setSelectedMember] = useState<any | null>(null);
+  
+  // Editing state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    phone: "",
+    city: "",
+    address: "",
+    latitude: "",
+    longitude: ""
+  });
+  const [saving, setSaving] = useState(false);
+
+  const startEditing = (m: any) => {
+    setEditForm({
+      name: m.name || "",
+      phone: m.phone || "",
+      city: m.city && m.city !== "Belum diatur" ? m.city : "",
+      address: m.address && m.address !== "Belum diatur" ? m.address : "",
+      latitude: m.latitude ? String(m.latitude) : "",
+      longitude: m.longitude ? String(m.longitude) : ""
+    });
+    setIsEditing(true);
+  };
+
+  const applyDefaultOfficeCoords = () => {
+    setEditForm(prev => ({
+      ...prev,
+      latitude: "-6.902482",
+      longitude: "107.575442",
+      city: "Bandung",
+      address: "1A Ruko G, Husein Sastranegara, Kec. Cicendo"
+    }));
+    toast.info("Koordinat & alamat kantor pusat Ranata diaplikasikan.");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedMember) return;
+    try {
+      setSaving(true);
+      const payload = {
+        name: editForm.name,
+        phone: editForm.phone,
+        city: editForm.city || "Belum diatur",
+        address: editForm.address || "Belum diatur",
+        latitude: editForm.latitude ? Number(editForm.latitude) : null,
+        longitude: editForm.longitude ? Number(editForm.longitude) : null
+      };
+      const res = await adminApi.updateMember(selectedMember.id, payload);
+      if (res.success) {
+        toast.success("Profil member berhasil diperbarui!");
+        setIsEditing(false);
+        const updated = {
+          ...selectedMember,
+          ...payload,
+        };
+        setSelectedMember(updated);
+        fetchMembers(search);
+      } else {
+        toast.error(res.message ?? "Gagal menyimpan profil.");
+      }
+    } catch (e) {
+      toast.error("Terjadi kesalahan saat menyimpan.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const fetchMembers = async (searchVal = "") => {
     try {
@@ -164,83 +231,213 @@ export default function AdminMembersPage() {
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in-50 zoom-in-95 duration-200">
             <div className="p-5 border-b border-border flex justify-between items-center" style={{ background: "linear-gradient(135deg, #800000, #500000)" }}>
               <div className="text-white font-bold text-sm" style={{ fontFamily: "Montserrat, sans-serif" }}>
-                Detail Profil Anggota
+                {isEditing ? "Ubah Data & Lokasi Member" : "Detail Profil Anggota"}
               </div>
               <button 
-                onClick={() => setSelectedMember(null)} 
+                onClick={() => { setSelectedMember(null); setIsEditing(false); }} 
                 className="text-white/80 hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <div className="p-6 space-y-4">
-              <div className="flex items-center gap-4 pb-4 border-b border-border">
-                <div 
-                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-base font-black flex-shrink-0"
-                  style={{ background: "linear-gradient(135deg, #800000, #400000)" }}
-                >
-                  {selectedMember.name.charAt(0)}
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-foreground">{selectedMember.name}</h3>
-                  <div className="text-[11px] text-muted-foreground font-semibold mt-0.5">{selectedMember.member_id || selectedMember.id}</div>
-                </div>
-                <div className="ml-auto">
-                  <TierBadge tier={selectedMember.tier} />
+            {isEditing ? (
+              <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Nama Lengkap</label>
+                    <input
+                      type="text"
+                      value={editForm.name}
+                      onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                      className="w-full px-3 py-2 border border-border rounded-xl text-xs outline-none focus:border-[#800000] transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">No. Telepon</label>
+                    <input
+                      type="text"
+                      value={editForm.phone}
+                      onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-border rounded-xl text-xs outline-none focus:border-[#800000] transition-colors"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Kota</label>
+                      <input
+                        type="text"
+                        value={editForm.city}
+                        onChange={e => setEditForm({ ...editForm, city: e.target.value })}
+                        placeholder="Contoh: Bandung"
+                        className="w-full px-3 py-2 border border-border rounded-xl text-xs outline-none focus:border-[#800000] transition-colors"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={applyDefaultOfficeCoords}
+                        className="w-full py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold rounded-xl transition-colors flex items-center justify-center gap-1"
+                      >
+                        Set Lokasi Ranata
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Alamat Lengkap</label>
+                    <textarea
+                      rows={2}
+                      value={editForm.address}
+                      onChange={e => setEditForm({ ...editForm, address: e.target.value })}
+                      className="w-full px-3 py-2 border border-border rounded-xl text-xs outline-none focus:border-[#800000] transition-colors resize-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Latitude</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={editForm.latitude}
+                        onChange={e => setEditForm({ ...editForm, latitude: e.target.value })}
+                        placeholder="Contoh: -6.902482"
+                        className="w-full px-3 py-2 border border-border rounded-xl text-xs outline-none focus:border-[#800000] transition-colors font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Longitude</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={editForm.longitude}
+                        onChange={e => setEditForm({ ...editForm, longitude: e.target.value })}
+                        placeholder="Contoh: 107.575442"
+                        className="w-full px-3 py-2 border border-border rounded-xl text-xs outline-none focus:border-[#800000] transition-colors font-mono"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="text-[10px] text-muted-foreground leading-relaxed bg-amber-50/50 p-3 rounded-xl border border-amber-200">
+                    💡 <strong>Tips:</strong> Untuk rute pickup real-time yang akurat, pastikan coordinates diisi dengan benar. Driver akan menggunakan titik ini sebagai titik jemput rumah customer.
+                  </div>
                 </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div>
-                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Status Akun</div>
-                  <div className="font-bold mt-0.5 flex items-center gap-1.5">
-                    <span className={`w-2 h-2 rounded-full ${selectedMember.status === "Active" ? "bg-green-500" : "bg-red-500"}`} />
-                    {selectedMember.status === "Active" ? "Aktif" : "Nonaktif"}
+            ) : (
+              <div className="p-6 space-y-4">
+                <div className="flex items-center gap-4 pb-4 border-b border-border">
+                  <div 
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-base font-black flex-shrink-0"
+                    style={{ background: "linear-gradient(135deg, #800000, #400000)" }}
+                  >
+                    {selectedMember.name.charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-foreground">{selectedMember.name}</h3>
+                    <div className="text-[11px] text-muted-foreground font-semibold mt-0.5">{selectedMember.member_id || selectedMember.id}</div>
+                  </div>
+                  <div className="ml-auto">
+                    <TierBadge tier={selectedMember.tier} />
                   </div>
                 </div>
-                
-                <div>
-                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Total Poin</div>
-                  <div className="font-black mt-0.5 text-yellow-600">
-                    {selectedMember.points.toLocaleString("id-ID")} Poin
+
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Status Akun</div>
+                    <div className="font-bold mt-0.5 flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${selectedMember.status === "Active" ? "bg-green-500" : "bg-red-500"}`} />
+                      {selectedMember.status === "Active" ? "Aktif" : "Nonaktif"}
+                    </div>
                   </div>
-                </div>
+                  
+                  <div>
+                    <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Total Poin</div>
+                    <div className="font-black mt-0.5 text-yellow-600">
+                      {selectedMember.points.toLocaleString("id-ID")} Poin
+                    </div>
+                  </div>
 
-                <div>
-                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Nomor Telepon</div>
-                  <div className="font-semibold mt-0.5">{selectedMember.phone}</div>
-                </div>
+                  <div>
+                    <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Nomor Telepon</div>
+                    <div className="font-semibold mt-0.5">{selectedMember.phone || "-"}</div>
+                  </div>
 
-                <div>
-                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Bergabung Sejak</div>
-                  <div className="font-semibold mt-0.5">{selectedMember.joined}</div>
-                </div>
+                  <div>
+                    <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Bergabung Sejak</div>
+                    <div className="font-semibold mt-0.5">{selectedMember.joined}</div>
+                  </div>
 
-                <div className="col-span-2">
-                  <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Alamat Domisili</div>
-                  <div className="font-semibold mt-0.5 text-foreground leading-normal">
-                    {selectedMember.address && selectedMember.address !== "Belum diatur" ? (
-                      <>
-                        {selectedMember.address}
-                        {selectedMember.city && selectedMember.city !== "Belum diatur" && `, ${selectedMember.city}`}
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground italic">Belum diatur</span>
-                    )}
+                  <div className="col-span-2">
+                    <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Alamat Domisili</div>
+                    <div className="font-semibold mt-0.5 text-foreground leading-normal">
+                      {selectedMember.address && selectedMember.address !== "Belum diatur" ? (
+                        <>
+                          {selectedMember.address}
+                          {selectedMember.city && selectedMember.city !== "Belum diatur" && `, ${selectedMember.city}`}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground italic">Belum diatur</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="col-span-2">
+                    <div className="text-muted-foreground text-[10px] font-semibold uppercase tracking-wider">Pinpoint Koordinat (Lat, Lng)</div>
+                    <div className="font-semibold mt-0.5 text-foreground leading-normal flex items-center gap-2">
+                      {selectedMember.latitude && selectedMember.longitude ? (
+                        <span className="font-mono text-[11px] bg-secondary/40 px-2 py-0.5 rounded-md border border-border">
+                          {selectedMember.latitude}, {selectedMember.longitude}
+                        </span>
+                      ) : (
+                        <span className="text-red-600 font-bold text-xs flex items-center gap-1">
+                          ⚠️ Belum pinpoint (menggunakan default kota)
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div className="p-4 bg-secondary/35 border-t border-border flex justify-end">
-              <button
-                onClick={() => setSelectedMember(null)}
-                className="px-4.5 py-2 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90"
-                style={{ background: "#800000" }}
-              >
-                Tutup Detail
-              </button>
+            <div className="p-4 bg-secondary/35 border-t border-border flex justify-between gap-2">
+              {!isEditing ? (
+                <>
+                  <button
+                    onClick={() => startEditing(selectedMember)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold border border-border bg-white hover:bg-secondary/20 transition-colors"
+                    style={{ color: "#800000" }}
+                  >
+                    Ubah Profil & Lokasi
+                  </button>
+                  <button
+                    onClick={() => { setSelectedMember(null); setIsEditing(false); }}
+                    className="px-4.5 py-2 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90"
+                    style={{ background: "#800000" }}
+                  >
+                    Tutup Detail
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold border border-border bg-white hover:bg-secondary/20 transition-colors text-muted-foreground"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleSaveEdit}
+                    disabled={saving}
+                    className="px-4.5 py-2 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90 flex items-center gap-1.5"
+                    style={{ background: "#800000" }}
+                  >
+                    {saving ? "Menyimpan..." : "Simpan Perubahan"}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

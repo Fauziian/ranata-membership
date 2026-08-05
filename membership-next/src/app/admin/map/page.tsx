@@ -199,8 +199,8 @@ export default function AdminMapPage() {
     if (active) {
       const dLat = selectedTrip.user?.latitude ?? cityCoords(selectedTrip.user?.city)[0];
       const dLng = selectedTrip.user?.longitude ?? cityCoords(selectedTrip.user?.city)[1];
-      const vLat = active.driver_lat ? Number(active.driver_lat) : -6.125;
-      const vLng = active.driver_lng ? Number(active.driver_lng) : 106.656;
+      const vLat = active.driver_lat ? Number(active.driver_lat) : -6.9152;
+      const vLng = active.driver_lng ? Number(active.driver_lng) : 107.4171;
       const distKm = haversineKm(vLat, vLng, dLat, dLng);
       distM = distKm * 1000;
       etaS = distM / (40 / 3.6);

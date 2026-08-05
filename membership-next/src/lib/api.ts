@@ -212,6 +212,12 @@ export const adminApi = {
   getMembers: (search?: string) =>
     apiFetch<any[]>(`/admin/members${search ? `?search=${search}` : ""}`),
 
+  updateMember: (id: number, data: any) =>
+    apiFetch<any>(`/admin/members/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
   getTransactions: (status?: string) =>
     apiFetch<any[]>(`/admin/transactions${status ? `?status=${status}` : ""}`),
 

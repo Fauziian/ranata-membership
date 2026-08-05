@@ -113,7 +113,7 @@ class ChatController extends Controller
 
         // 5. Check contact info / address
         elseif (str_contains($lowerText, 'kontak') || str_contains($lowerText, 'alamat') || str_contains($lowerText, 'lokasi') || str_contains($lowerText, 'kantor') || str_contains($lowerText, 'nomor') || str_contains($lowerText, 'telepon') || str_contains($lowerText, 'email') || str_contains($lowerText, 'cs')) {
-            $reply = "Kantor Ranata Tour berlokasi di Jl. Sudirman No. 45, Jakarta Pusat. Anda juga dapat menghubungi kami via telepon di (021) 5555-7890 atau email ke info@ranatatour.co.id.";
+            $reply = "Kantor Ranata Tour berlokasi di 1A Ruko G, Husein Sastranegara, Kec. Cicendo, Kota Bandung, Jawa Barat 40174. Anda juga dapat menghubungi kami via telepon di 0813 1111 6566 atau email ke adminranata@ranatatour.co.id.";
         }
 
         // 6. Check flight ticket / pesawat

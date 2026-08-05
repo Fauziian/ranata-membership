@@ -92,7 +92,10 @@ function AuthForm() {
           setStoredUser(res.data.user);
           toast.success("Login berhasil!");
           
-          if (res.data.user.role === "admin") {
+          const redirectUrl = searchParams.get("redirect");
+          if (redirectUrl) {
+            router.push(redirectUrl);
+          } else if (res.data.user.role === "admin") {
             router.push("/admin");
           } else {
             router.push("/dashboard"); // Pergi ke Dashboard Next.js
@@ -127,7 +130,12 @@ function AuthForm() {
           setToken(res.data.token);
           setStoredUser(res.data.user);
           toast.success("Pendaftaran berhasil!");
-          router.push("/dashboard");
+          const redirectUrl = searchParams.get("redirect");
+          if (redirectUrl) {
+            router.push(redirectUrl);
+          } else {
+            router.push("/dashboard");
+          }
         } else {
           if (res.errors) {
             const errs = Object.values(res.errors).flat().join("\n");

@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('App\Http\Middleware\AdminMiddleware')->prefix('admin')->group(function () {
         Route::get('stats',                              [AdminController::class, 'stats']);
         Route::get('members',                            [AdminController::class, 'members']);
+        Route::put('members/{id}',                       [AdminController::class, 'updateMember']);
         Route::get('transactions',                       [AdminController::class, 'transactions']);
         Route::put('transactions/{id}/verify',           [AdminController::class, 'verifyTransaction']);
         Route::get('rewards',                            [AdminController::class, 'rewards']);

@@ -58,7 +58,7 @@ const getCustomerCoords = (t: any) => {
 };
 
 const getCoordinatesForCity = (city: string, address: string) => {
-  const defaultCoords = { lat: -6.2088, lng: 106.8456 }; // Jakarta
+  const defaultCoords = { lat: -6.902482, lng: 107.575442 }; // Bandung (Ranata Office)
   const cleanCity = (city || "").toLowerCase().trim();
   const cleanAddress = (address || "").toLowerCase().trim();
   
@@ -78,8 +78,8 @@ const getCoordinatesForHub = (city: string) => {
   if (clean.includes("bali") || clean.includes("denpasar")) {
     return { lat: -8.748, lng: 115.167 }; // DPS Airport
   }
-  // Default to CGK Airport for Jakarta and nearby regions
-  return { lat: -6.125, lng: 106.656 };
+  // Default to BDO Airport/Bandung office for Ranata Tour
+  return { lat: -6.902482, lng: 107.575442 };
 };
 
 // Physics/Geometry Helper: Haversine distance in km
@@ -525,7 +525,7 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
     document.head.appendChild(s);
   }, []);
 
-  const center: [number, number] = [-6.2088, 106.8456]; // default centered on Jakarta
+  const center: [number, number] = [-6.902482, 107.575442]; // default centered on Bandung office
 
   return (
     <div className="relative w-full h-[450px] rounded-2xl overflow-hidden border border-border shadow-md" style={{ isolation: "isolate" }}>

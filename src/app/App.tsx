@@ -865,15 +865,15 @@ function LandingPage({ onOpenLogin }: { onOpenLogin: (tab: "login" | "register")
               <div className="text-xs font-bold tracking-widest text-gray-400 mb-4" style={{ fontFamily: "Montserrat, sans-serif" }}>LOKASI KANTOR</div>
               <div className="flex items-start gap-2 text-gray-400 text-xs mb-3">
                 <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#DAA520" }} />
-                <span>Jl. Sudirman No. 45, Jakarta Pusat, DKI Jakarta 10220</span>
+                <span>1A Ruko G, Husein Sastranegara, Kec. Cicendo, Kota Bandung, Jawa Barat 40174.</span>
               </div>
               <div className="flex items-center gap-2 text-gray-400 text-xs mb-2">
                 <Phone className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#DAA520" }} />
-                <span>(021) 5555-7890</span>
+                <span>0813 1111 6566</span>
               </div>
               <div className="flex items-center gap-2 text-gray-400 text-xs">
                 <Mail className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#DAA520" }} />
-                <span>info@ranatatour.co.id</span>
+                <span>adminranata@ranatatour.co.id</span>
               </div>
             </div>
           </div>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { 
   Settings, Award, CreditCard, Shield, Save, RefreshCw, 
-  HelpCircle, Globe, ToggleLeft, ToggleRight
+  HelpCircle, Globe, ToggleLeft, ToggleRight, MapPin
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,6 +19,9 @@ interface SystemSettings {
   autoApproveSim: boolean;
   maintenanceMode: boolean;
   adminWhatsapp: string;
+  officeAddress: string;
+  officeLat: number;
+  officeLng: number;
 }
 
 const defaultSettings: SystemSettings = {
@@ -32,7 +35,10 @@ const defaultSettings: SystemSettings = {
   bankMandiriNo: "137-00-98765-43",
   autoApproveSim: false,
   maintenanceMode: false,
-  adminWhatsapp: "+6281234567890"
+  adminWhatsapp: "+6281234567890",
+  officeAddress: "1A Ruko G, Husein Sastranegara, Kec. Cicendo, Kota Bandung, Jawa Barat 40174",
+  officeLat: -6.902482,
+  officeLng: 107.575442
 };
 
 export default function AdminSettingsPage() {
@@ -262,6 +268,63 @@ export default function AdminSettingsPage() {
                 placeholder="+62812xxxxxx"
                 className="w-full max-w-sm px-4 py-2.5 border border-border rounded-xl text-xs outline-none focus:border-primary transition-colors"
               />
+            </div>
+          </div>
+
+          {/* Card 4: Office Location & GPS Origin */}
+          <div className="bg-white rounded-3xl border border-border p-6 shadow-xs space-y-5">
+            <div className="flex items-center gap-2 pb-3 border-b border-border">
+              <MapPin className="w-5 h-5 text-red-600" />
+              <h3 className="font-bold text-sm text-foreground" style={{ fontFamily: "Montserrat, sans-serif" }}>
+                Lokasi Kantor Pusat & Koordinat Origin Map
+              </h3>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                  Alamat Kantor Pusat
+                </label>
+                <textarea
+                  required
+                  rows={2}
+                  value={settings.officeAddress}
+                  onChange={e => setSettings({ ...settings, officeAddress: e.target.value })}
+                  placeholder="Masukkan alamat lengkap kantor pusat..."
+                  className="w-full px-4 py-2.5 border border-border rounded-xl text-xs outline-none focus:border-primary transition-colors resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                    Latitude Origin
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    value={settings.officeLat}
+                    onChange={e => setSettings({ ...settings, officeLat: Number(e.target.value) })}
+                    placeholder="-6.xxxxx"
+                    className="w-full px-4 py-2.5 border border-border rounded-xl text-xs outline-none focus:border-primary transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                    Longitude Origin
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    required
+                    value={settings.officeLng}
+                    onChange={e => setSettings({ ...settings, officeLng: Number(e.target.value) })}
+                    placeholder="107.xxxxx"
+                    className="w-full px-4 py-2.5 border border-border rounded-xl text-xs outline-none focus:border-primary transition-colors"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>

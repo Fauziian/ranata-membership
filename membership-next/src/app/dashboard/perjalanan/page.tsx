@@ -71,7 +71,7 @@ export default function TravelStatusPage() {
   };
 
   const getCoordinatesForCity = (city: string, address: string) => {
-    const defaultCoords = { lat: -6.2088, lng: 106.8456 }; // Jakarta
+    const defaultCoords = { lat: -6.902482, lng: 107.575442 }; // Bandung (Ranata Office)
     const cleanCity = (city || "").toLowerCase().trim();
     const cleanAddress = (address || "").toLowerCase().trim();
     
@@ -129,7 +129,7 @@ export default function TravelStatusPage() {
   // Derive location coordinates and name based on the current active step
   const getActiveLocationForTrip = (t: any) => {
     if (!t || !t.steps || t.steps.length === 0) {
-      return { lat: -6.208, lng: 106.822, location: "Menunggu" };
+      return { lat: -6.902482, lng: 107.575442, location: "Menunggu" };
     }
     let activeStep = t.steps.find((s: any) => s.status === "in-progress");
     if (!activeStep) {
@@ -158,6 +158,8 @@ export default function TravelStatusPage() {
       return { lat: coords.lat, lng: coords.lng, location: locationLabel };
     } else if (stepLabel.includes("CGK")) {
       return { lat: -6.125, lng: 106.656, location: "Terminal 3 Bandara CGK" };
+    } else if (stepLabel.includes("BDO") || stepLabel.includes("Husein") || stepLabel.includes("Sastranegara")) {
+      return { lat: -6.9006, lng: 107.5763, location: "Bandara Husein Sastranegara BDO" };
     } else if (stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {
       return { lat: -7.3, lng: 110.8, location: "Di Udara (Flight GA-403)" };
     } else if (stepLabel.includes("DPS") || stepLabel.includes("Bali")) {
@@ -165,7 +167,7 @@ export default function TravelStatusPage() {
     } else if (stepLabel.includes("Hotel") || stepLabel.includes("Check-in")) {
       return { lat: -8.798, lng: 115.228, location: "Hotel Partner (Bali)" };
     }
-    return { lat: -6.208, lng: 106.822, location: activeStep?.label || "Perjalanan" };
+    return { lat: -6.902482, lng: 107.575442, location: activeStep?.label || "Perjalanan" };
   };
 
   if (loading) {
