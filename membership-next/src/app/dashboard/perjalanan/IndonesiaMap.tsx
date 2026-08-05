@@ -428,20 +428,62 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
       }
 
       try {
-        // Use internal Next.js proxy to avoid browser CORS issues with OSRM
-        const url = `/api/osrm-route?startLng=${startCoords.lng}&startLat=${startCoords.lat}&endLng=${destinationCoords.lng}&endLat=${destinationCoords.lat}`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.routes && data.routes[0]) {
+        // Step 1: Try server-side proxy (Valhalla → OSRM fallback)
+        const proxyUrl = `/api/osrm-route?startLng=${startCoords.lng}&startLat=${startCoords.lat}&endLng=${destinationCoords.lng}&endLat=${destinationCoords.lat}`;
+        console.log("[routing] fetching via proxy:", proxyUrl);
+        let routeFound = false;
+
+        const proxyRes = await fetch(proxyUrl);
+        if (proxyRes.ok) {
+          const data = await proxyRes.json();
+          if (data.routes?.[0]?.geometry?.coordinates?.length > 2) {
             const path: [number, number][] = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]] as [number, number]);
+            console.log(`[routing] proxy success — ${path.length} road points`);
             setRoadRoutes(prev => ({ ...prev, [routeKey]: path }));
+            routeFound = true;
           }
-        } else {
-          throw new Error(`Route proxy HTTP ${res.status}`);
         }
+
+        // Step 2: If proxy returned no usable route, try direct Valhalla from browser
+        if (!routeFound) {
+          console.warn("[routing] proxy failed/empty, trying direct Valhalla...");
+          const vRes = await fetch("https://valhalla.openstreetmap.de/route", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              locations: [
+                { lon: startCoords.lng, lat: startCoords.lat },
+                { lon: destinationCoords.lng, lat: destinationCoords.lat },
+              ],
+              costing: "auto",
+            }),
+          });
+          if (vRes.ok) {
+            const vData = await vRes.json();
+            const shape = vData?.trip?.legs?.[0]?.shape;
+            if (shape) {
+              // Decode precision-6 polyline
+              const coords: [number, number][] = [];
+              let idx = 0, lat = 0, lng = 0;
+              while (idx < shape.length) {
+                let b, shift = 0, result = 0;
+                do { b = shape.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+                lat += result & 1 ? ~(result >> 1) : result >> 1;
+                shift = result = 0;
+                do { b = shape.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+                lng += result & 1 ? ~(result >> 1) : result >> 1;
+                coords.push([lat / 1e6, lng / 1e6]);
+              }
+              console.log(`[routing] Valhalla direct success — ${coords.length} road points`);
+              setRoadRoutes(prev => ({ ...prev, [routeKey]: coords }));
+              routeFound = true;
+            }
+          }
+        }
+
+        if (!routeFound) throw new Error("All routing engines returned no route");
       } catch (err) {
-        console.warn("OSRM fetch failed, fallback straight line:", err);
+        console.error("[routing] All engines failed, using straight line fallback:", err);
         setRoadRoutes(prev => ({
           ...prev,
           [routeKey]: [
@@ -556,10 +598,11 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
         scrollWheelZoom={true}
       >
         <>
-          {/* CartoDB Voyager clean light vector-terrain style tile layer */}
+          {/* OpenStreetMap Standard — roads clearly visible (yellow=highway, orange=primary) */}
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={19}
           />
 
           <MapController travelers={travelers} progress={progress} />
