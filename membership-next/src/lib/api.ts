@@ -1,11 +1,17 @@
 /**
  * API Client — Ranata Tour Membership
  * Semua HTTP calls ke Laravel backend.
- * Untuk lokal gunakan http://localhost:8000/api.
+ * Untuk lokal gunakan http://127.0.0.1:8000/api.
  * Untuk produksi Vercel gunakan URL backend yang sudah disediakan.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "https://ranata-membership.vercel.app/api";
+const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+const isDevelopment = process.env.NODE_ENV === "development";
+const API_BASE = isDevelopment
+  ? (configuredApiUrl && !configuredApiUrl.includes("vercel.app")
+      ? configuredApiUrl
+      : "http://127.0.0.1:8000/api")
+  : (configuredApiUrl ?? "https://ranata-membership.vercel.app/api");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

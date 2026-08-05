@@ -370,12 +370,12 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
   const [progress, setProgress] = useState<number>(0);
   const [roadRoutes, setRoadRoutes] = useState<Record<string, [number, number][]>>({});
 
-  // Fetch real-world road paths from OSRM for driving segments
+  // Fetch real-world road paths from OSRM — start from driver live GPS when available
   useEffect(() => {
     travelers.forEach(async (t) => {
       const stepLabel = t.activeStep?.label || "";
       const stepStatus = t.activeStep?.status || "waiting";
-      
+
       let drawRoute = false;
       if (stepLabel.includes("Rumah")) {
         drawRoute = stepStatus === "in-progress";
@@ -384,14 +384,14 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
       } else if (stepLabel.includes("DPS") || stepLabel.includes("Jemput")) {
         drawRoute = true;
       }
-      
+
       if (!drawRoute) return;
-      
+
       const customerCoordsRaw = getCustomerCoords(t);
       let hubCoords = getCoordinatesForHub(t.userCity || "");
       let destinationCoords = { lat: customerCoordsRaw.lat, lng: customerCoordsRaw.lng };
       let isFlight = false;
-      
+
       if (stepLabel.includes("CGK") || stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {
         hubCoords = { lat: -6.125, lng: 106.656 };
         destinationCoords = { lat: -8.748, lng: 115.167 };
@@ -400,41 +400,51 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
         hubCoords = { lat: -8.748, lng: 115.167 };
         destinationCoords = { lat: -8.798, lng: 115.228 };
       }
-      
-      const routeKey = `${t.id}-${hubCoords.lat}-${hubCoords.lng}-${destinationCoords.lat}-${destinationCoords.lng}`;
-      if (roadRoutes[routeKey]) return; // already fetched
-      
-      // Flights don't run on roads - draw a direct line
+
+      // KEY FIX: Use driver live GPS as route start when available
+      // Round to 3 decimal places (~111m precision) so routeKey changes when driver moves >~50m
+      let startCoords = hubCoords;
+      let driverRoundedKey = "hub";
+      if (t.activeStep?.driverLat && t.activeStep?.driverLng) {
+        const dLat = parseFloat(parseFloat(t.activeStep.driverLat).toFixed(3));
+        const dLng = parseFloat(parseFloat(t.activeStep.driverLng).toFixed(3));
+        startCoords = { lat: dLat, lng: dLng };
+        driverRoundedKey = `${dLat},${dLng}`;
+      }
+
+      const routeKey = `${t.id}-${driverRoundedKey}-${destinationCoords.lat.toFixed(4)},${destinationCoords.lng.toFixed(4)}`;
+      if (roadRoutes[routeKey]) return; // already fetched for this position
+
+      // Flights use straight line
       if (isFlight) {
         setRoadRoutes(prev => ({
           ...prev,
           [routeKey]: [
-            [hubCoords.lat, hubCoords.lng],
+            [startCoords.lat, startCoords.lng],
             [destinationCoords.lat, destinationCoords.lng]
           ]
         }));
         return;
       }
-      
+
       try {
-        const res = await fetch(`https://router.projectosrm.org/route/v1/driving/${hubCoords.lng},${hubCoords.lat};${destinationCoords.lng},${destinationCoords.lat}?overview=full&geometries=geojson`);
+        const url = `https://router.project-osrm.org/route/v1/driving/${startCoords.lng},${startCoords.lat};${destinationCoords.lng},${destinationCoords.lat}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
         if (res.ok) {
           const data = await res.json();
           if (data.routes && data.routes[0]) {
-            const path = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]]);
-            setRoadRoutes(prev => ({
-              ...prev,
-              [routeKey]: path
-            }));
+            const path: [number, number][] = data.routes[0].geometry.coordinates.map((c: any) => [c[1], c[0]] as [number, number]);
+            setRoadRoutes(prev => ({ ...prev, [routeKey]: path }));
           }
+        } else {
+          throw new Error(`OSRM HTTP ${res.status}`);
         }
       } catch (err) {
-        console.error("OSRM fetch failed:", err);
-        // Fallback to straight line
+        console.warn("OSRM fetch failed, fallback straight line:", err);
         setRoadRoutes(prev => ({
           ...prev,
           [routeKey]: [
-            [hubCoords.lat, hubCoords.lng],
+            [startCoords.lat, startCoords.lng],
             [destinationCoords.lat, destinationCoords.lng]
           ]
         }));
@@ -494,21 +504,24 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
       {(() => {
         const activeT = travelers.find(t => t.activeStep && t.activeStep.status === "in-progress");
         if (!activeT) return null;
-        
+
         const customerCoordsRaw = getCustomerCoords(activeT);
         const stepLabel = activeT.activeStep?.label || "";
-        let hubCoords = getCoordinatesForHub(activeT.userCity || "");
         let destinationCoords = { lat: customerCoordsRaw.lat, lng: customerCoordsRaw.lng };
-        
+
         if (stepLabel.includes("CGK") || stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {
-          hubCoords = { lat: -6.125, lng: 106.656 };
           destinationCoords = { lat: -8.748, lng: 115.167 };
         } else if (stepLabel.includes("DPS") || stepLabel.includes("Jemput")) {
-          hubCoords = { lat: -8.748, lng: 115.167 };
           destinationCoords = { lat: -8.798, lng: 115.228 };
         }
-        
-        const routeKey = `${activeT.id}-${hubCoords.lat}-${hubCoords.lng}-${destinationCoords.lat}-${destinationCoords.lng}`;
+
+        let driverRoundedKey = "hub";
+        if (activeT.activeStep?.driverLat && activeT.activeStep?.driverLng) {
+          const dLat = parseFloat(parseFloat(activeT.activeStep.driverLat).toFixed(3));
+          const dLng = parseFloat(parseFloat(activeT.activeStep.driverLng).toFixed(3));
+          driverRoundedKey = `${dLat},${dLng}`;
+        }
+        const routeKey = `${activeT.id}-${driverRoundedKey}-${destinationCoords.lat.toFixed(4)},${destinationCoords.lng.toFixed(4)}`;
         const roadPath = roadRoutes[routeKey];
         const { distanceKm, etaMinutes, isRealDriverGPS } = getTravelerETA(activeT, progress, roadPath);
         
@@ -560,7 +573,7 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
             
             let currentHubCoords = getCoordinatesForHub(t.userCity || "");
             let currentDestinationCoords = customerCoords;
-            
+
             if (stepLabel.includes("CGK") || stepLabel.includes("Flight") || stepLabel.includes("Penerbangan")) {
               currentHubCoords = { lat: -6.125, lng: 106.656 };
               currentDestinationCoords = { lat: -8.748, lng: 115.167 };
@@ -568,10 +581,17 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
               currentHubCoords = { lat: -8.748, lng: 115.167 };
               currentDestinationCoords = { lat: -8.798, lng: 115.228 };
             }
-            
-            const routeKey = `${t.id}-${currentHubCoords.lat}-${currentHubCoords.lng}-${currentDestinationCoords.lat}-${currentDestinationCoords.lng}`;
+
+            // Match routeKey with the same logic used in useEffect above
+            let driverRoundedKey = "hub";
+            if (t.activeStep?.driverLat && t.activeStep?.driverLng) {
+              const dLat = parseFloat(parseFloat(t.activeStep.driverLat).toFixed(3));
+              const dLng = parseFloat(parseFloat(t.activeStep.driverLng).toFixed(3));
+              driverRoundedKey = `${dLat},${dLng}`;
+            }
+            const routeKey = `${t.id}-${driverRoundedKey}-${currentDestinationCoords.lat.toFixed(4)},${currentDestinationCoords.lng.toFixed(4)}`;
             const roadPath = roadRoutes[routeKey];
-            
+
             // Resolve exact coordinates & physics calculations
             const { distanceKm, etaMinutes, vehicleCoords, destinationCoords, hubCoords, trackType } = getTravelerETA(t, progress, roadPath);
             
@@ -636,17 +656,32 @@ export default function IndonesiaMap({ travelers, onStatusChange }: IndonesiaMap
                   </Marker>
                 )}
 
-                {/* 3. Polyline Route between Hub and Destination (OSRM clean road following) */}
+                {/* 3. Polyline Route — from driver live GPS (or hub) to destination via real roads */}
                 {drawRoute && (
-                  <Polyline
-                    positions={roadPath || [
-                      [hubCoords.lat, hubCoords.lng],
-                      [destinationCoords.lat, destinationCoords.lng]
-                    ]}
-                    color="#FF3300"
-                    weight={6}
-                    opacity={0.9}
-                  />
+                  <>
+                    <Polyline
+                      positions={roadPath || [
+                        [vehicleCoords.lat, vehicleCoords.lng],
+                        [destinationCoords.lat, destinationCoords.lng]
+                      ]}
+                      color="#FF3300"
+                      weight={6}
+                      opacity={0.9}
+                    />
+                    {/* Dimmed "already traveled" segment: hub → driver */}
+                    {roadPath && t.activeStep?.driverLat && t.activeStep?.driverLng && (
+                      <Polyline
+                        positions={[
+                          [hubCoords.lat, hubCoords.lng],
+                          [vehicleCoords.lat, vehicleCoords.lng]
+                        ]}
+                        color="#FF3300"
+                        weight={4}
+                        opacity={0.25}
+                        dashArray="6,8"
+                      />
+                    )}
+                  </>
                 )}
 
                 {/* 4. Active Vehicle Marker (Only show if step is in-progress) */}
